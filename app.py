@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-from database import Session, init_db, User, Dose, Cycle, Meal, Workout, Bloodwork, Photo
-from utils import weekly_dose_chart, weekly_meals_chart, weekly_workout_chart, bloodwork_chart
+from database.database import Session, init_db, User, Dose, Cycle, Meal, Workout, Bloodwork, Photo
+from utils.utils import weekly_dose_chart, weekly_meals_chart, weekly_workout_chart, bloodwork_chart
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
