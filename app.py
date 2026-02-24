@@ -151,29 +151,51 @@ else:
     # DOSING PAGE
     # ----------------------
     if page == "Dosing":
-        st.header("Log Dose")
-        compounds = ["BPC-157","TB-500","CJC-1295","Ipamorelin",
-                     "Testosterone","Nandrolone","Oxandrolone","Custom"]
+    st.header("Log Dose")
 
-        compound = st.selectbox("Compound", compounds)
-        if compound == "Custom":
-            compound = st.text_input("Enter Custom Compound")
+    # Prepopulated compounds
+    compounds = [
+        "BPC-157","TB-500","CJC-1295","Ipamorelin",
+        "Testosterone","Nandrolone","Oxandrolone","Custom"
+    ]
+    compound = st.selectbox("Compound", compounds)
+    if compound == "Custom":
+        compound = st.text_input("Enter Custom Compound")
 
-        amount = st.number_input("Amount (mg)", min_value=0.0)
-        date = st.date_input("Date", datetime.date.today())
+    amount = st.number_input("Amount (mg)", min_value=0.0)
+    date = st.date_input("Date", datetime.date.today())
 
-        if st.button("Save Dose"):
+    if st.button("Save Dose"):
+        if compound.strip() == "" or amount <= 0:
+            st.error("Please enter a valid compound and amount")
+        else:
             session.add(Dose(user_id=user_id, compound=compound, amount=amount, date=date))
             session.commit()
             st.success("Dose saved!")
 
-        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
-        if not doses.empty:
+    # Fetch doses from DB
+    doses = pd.read_sql(
+        session.query(Dose).filter_by(user_id=user_id).statement,
+        engine
+    )
+
+    if doses.empty:
+        st.info("No doses logged yet.")
+    else:
+        # Ensure correct column names
+        if "amount" in doses.columns and "compound" in doses.columns and "date" in doses.columns:
             doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
             summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
-            fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
+            fig = px.bar(
+                summary,
+                x="week",
+                y="amount",
+                color="compound",
+                title="Weekly Dose Totals"
+            )
             st.plotly_chart(fig)
-
+        else:
+            st.error("Dose table missing expected columns.")
     # ----------------------
     # MEALS PAGE
     # ----------------------
