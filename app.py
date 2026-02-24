@@ -89,13 +89,21 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # ----------------------
-# LOGIN / REGISTER
+# SIDEBAR AND LOGIN / REGISTER
 # ----------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 
-choice = st.sidebar.radio("Account", ["Login", "Register"])
+# Sidebar
+if st.session_state.user:
+    # Show navigation sidebar
+    page = st.sidebar.radio("Navigation", ["Dashboard","Dosing","Meals","Workouts","Bloodwork","Photos","Logout"])
+else:
+    # Show login/register sidebar
+    choice = st.sidebar.radio("Account", ["Login", "Register"])
+    page = None
 
+# LOGIN / REGISTER HANDLING
 if st.session_state.user is None:
 
     if choice == "Register":
@@ -125,13 +133,10 @@ if st.session_state.user is None:
                 st.error("Invalid login credentials")
 
 else:
-    # USER IS LOGGED IN → SHOW NAVIGATION
-    page = st.sidebar.radio("Navigation", ["Dashboard","Dosing","Meals","Workouts","Bloodwork","Photos","Logout"])
-
+    # LOGOUT
     if page == "Logout":
         st.session_state.user = None
         st.success("Logged out")
-
     # ---------------- Dashboard ----------------
     if page == "Dashboard":
         st.header("Overview")
