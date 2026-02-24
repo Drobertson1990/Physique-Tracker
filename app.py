@@ -2,24 +2,22 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date, ForeignKey
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date
+from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
 import plotly.express as px
 
 # ----------------------
 # DATABASE SETUP
 # ----------------------
-
 engine = create_engine("sqlite:///tracker.db")
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
 
 # ----------------------
-# MODELS
+# DATABASE MODELS
 # ----------------------
-
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
@@ -79,9 +77,8 @@ class Photo(Base):
 Base.metadata.create_all(engine)
 
 # ----------------------
-# APP START
+# APP CONFIG
 # ----------------------
-
 st.set_page_config(layout="wide")
 st.title("💪 Physique Tracker")
 
@@ -89,21 +86,17 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # ----------------------
-# SIDEBAR AND LOGIN / REGISTER
+# SIDEBAR NAVIGATION
 # ----------------------
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-# Sidebar
 if st.session_state.user:
-    # Show navigation sidebar
     page = st.sidebar.radio("Navigation", ["Dashboard","Dosing","Meals","Workouts","Bloodwork","Photos","Logout"])
 else:
-    # Show login/register sidebar
     choice = st.sidebar.radio("Account", ["Login", "Register"])
     page = None
 
-# LOGIN / REGISTER HANDLING
+# ----------------------
+# LOGIN / REGISTER / LOGOUT
+# ----------------------
 if st.session_state.user is None:
 
     if choice == "Register":
@@ -133,32 +126,36 @@ if st.session_state.user is None:
                 st.error("Invalid login credentials")
 
 else:
-    # LOGOUT
+    # Define user_id after login
+    user_id = st.session_state.user
+
     if page == "Logout":
         st.session_state.user = None
         st.success("Logged out")
-    # ---------------- Dashboard ----------------
+
+    # ----------------------
+    # DASHBOARD
+    # ----------------------
     if page == "Dashboard":
         st.header("Overview")
-
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
         meals = pd.read_sql(session.query(Meal).filter_by(user_id=user_id).statement, engine)
         workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
 
         col1,col2,col3 = st.columns(3)
-        col1.metric("Doses", len(doses))
-        col2.metric("Meals", len(meals))
-        col3.metric("Workouts", len(workouts))
+        col1.metric("Doses Logged", len(doses))
+        col2.metric("Meals Logged", len(meals))
+        col3.metric("Workouts Logged", len(workouts))
 
-    # ---------------- Dosing ----------------
+    # ----------------------
+    # DOSING PAGE
+    # ----------------------
     if page == "Dosing":
         st.header("Log Dose")
-
         compounds = ["BPC-157","TB-500","CJC-1295","Ipamorelin",
                      "Testosterone","Nandrolone","Oxandrolone","Custom"]
 
         compound = st.selectbox("Compound", compounds)
-
         if compound == "Custom":
             compound = st.text_input("Enter Custom Compound")
 
@@ -168,19 +165,20 @@ else:
         if st.button("Save Dose"):
             session.add(Dose(user_id=user_id, compound=compound, amount=amount, date=date))
             session.commit()
-            st.success("Saved")
+            st.success("Dose saved!")
 
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
         if not doses.empty:
             doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
             summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
-            fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Totals")
+            fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
             st.plotly_chart(fig)
 
-    # ---------------- Meals ----------------
+    # ----------------------
+    # MEALS PAGE
+    # ----------------------
     if page == "Meals":
         st.header("Log Meal")
-
         name = st.text_input("Meal Name")
         calories = st.number_input("Calories",0)
         protein = st.number_input("Protein",0)
@@ -192,19 +190,20 @@ else:
             session.add(Meal(user_id=user_id,name=name,calories=calories,
                              protein=protein,carbs=carbs,fats=fats,date=date))
             session.commit()
-            st.success("Saved")
+            st.success("Meal saved!")
 
         meals = pd.read_sql(session.query(Meal).filter_by(user_id=user_id).statement, engine)
         if not meals.empty:
             meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
             summary = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
-            fig = px.line(summary, x="week", y=["calories","protein","carbs","fats"])
+            fig = px.line(summary, x="week", y=["calories","protein","carbs","fats"], title="Weekly Nutrition")
             st.plotly_chart(fig)
 
-    # ---------------- Workouts ----------------
+    # ----------------------
+    # WORKOUTS PAGE
+    # ----------------------
     if page == "Workouts":
         st.header("Log Workout")
-
         exercise = st.text_input("Exercise")
         sets = st.number_input("Sets",1)
         reps = st.number_input("Reps",1)
@@ -215,20 +214,21 @@ else:
             session.add(Workout(user_id=user_id,exercise=exercise,
                                 sets=sets,reps=reps,weight=weight,date=date))
             session.commit()
-            st.success("Saved")
+            st.success("Workout saved!")
 
         workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
         if not workouts.empty:
             workouts["volume"] = workouts["sets"]*workouts["reps"]*workouts["weight"]
             workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
             summary = workouts.groupby(["week","exercise"])["volume"].sum().reset_index()
-            fig = px.bar(summary, x="week", y="volume", color="exercise")
+            fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
             st.plotly_chart(fig)
 
-    # ---------------- Bloodwork ----------------
+    # ----------------------
+    # BLOODWORK PAGE
+    # ----------------------
     if page == "Bloodwork":
-        st.header("Bloodwork")
-
+        st.header("Log Bloodwork")
         test = st.text_input("Test Name")
         value = st.number_input("Value",0.0)
         date = st.date_input("Date", datetime.date.today())
@@ -236,17 +236,18 @@ else:
         if st.button("Save Bloodwork"):
             session.add(Bloodwork(user_id=user_id,test=test,value=value,date=date))
             session.commit()
-            st.success("Saved")
+            st.success("Bloodwork saved!")
 
         blood = pd.read_sql(session.query(Bloodwork).filter_by(user_id=user_id).statement, engine)
         if not blood.empty:
-            fig = px.line(blood, x="date", y="value", color="test")
+            fig = px.line(blood, x="date", y="value", color="test", title="Bloodwork Trends")
             st.plotly_chart(fig)
 
-    # ---------------- Photos ----------------
+    # ----------------------
+    # PHOTOS PAGE
+    # ----------------------
     if page == "Photos":
         st.header("Progress Photos")
-
         if not os.path.exists("photos"):
             os.makedirs("photos")
 
@@ -259,7 +260,7 @@ else:
                 f.write(uploaded.getbuffer())
             session.add(Photo(user_id=user_id,path=path,date=date))
             session.commit()
-            st.success("Saved")
+            st.success("Photo saved!")
 
         photos = session.query(Photo).filter_by(user_id=user_id).all()
         for p in photos:
