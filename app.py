@@ -111,14 +111,14 @@ if st.session_state.user is None:
     if choice == "Login":
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            user = session.query(User).filter_by(email=email).first()
-            if user and user.check_password(password):
-                st.session_state.user = user.id
-                st.success("Logged in")
-            else:
-                st.error("Invalid login")
-
+       if st.button("Login"):
+    user = session.query(User).filter_by(email=email).first()
+    if user and user.check_password(password):
+        st.session_state.user = user.id
+        st.success("Logged in")
+        st.experimental_rerun()   # <- force the app to reload with session
+    else:
+        st.error("Invalid login")
 else:
 
     user_id = st.session_state.user
