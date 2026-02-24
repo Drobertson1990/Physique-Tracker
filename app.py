@@ -91,13 +91,17 @@ if "user" not in st.session_state:
 # ----------------------
 # LOGIN / REGISTER
 # ----------------------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+choice = st.sidebar.radio("Account", ["Login", "Register"])
+
 if st.session_state.user is None:
-    choice = st.sidebar.radio("Account", ["Login", "Register"])
 
     if choice == "Register":
         st.subheader("Create Account")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
+        email = st.text_input("Email", key="reg_email")
+        password = st.text_input("Password", type="password", key="reg_pass")
         if st.button("Create Account"):
             if session.query(User).filter_by(email=email).first():
                 st.error("Email already exists")
@@ -106,24 +110,22 @@ if st.session_state.user is None:
                 user.set_password(password)
                 session.add(user)
                 session.commit()
-                st.success("Account created! You can now log in.")
+                st.success("Account created! Please log in.")
 
     if choice == "Login":
         st.subheader("Login")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pass")
         if st.button("Login"):
             user = session.query(User).filter_by(email=email).first()
             if user and user.check_password(password):
                 st.session_state.user = user.id
                 st.success("Logged in successfully!")
-                st.experimental_rerun()  # force app reload to show navigation
             else:
                 st.error("Invalid login credentials")
+
 else:
-
-    user_id = st.session_state.user
-
+    # USER IS LOGGED IN → SHOW NAVIGATION
     page = st.sidebar.radio("Navigation", ["Dashboard","Dosing","Meals","Workouts","Bloodwork","Photos","Logout"])
 
     if page == "Logout":
