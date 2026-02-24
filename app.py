@@ -150,10 +150,9 @@ else:
     # ----------------------
     # DOSING PAGE
     # ----------------------
-   if page == "Dosing":
+if page == "Dosing":
     st.header("Log Dose")
 
-    # Prepopulated compounds
     compounds = [
         "BPC-157","TB-500","CJC-1295","Ipamorelin",
         "Testosterone","Nandrolone","Oxandrolone","Custom"
@@ -173,7 +172,7 @@ else:
             session.commit()
             st.success("Dose saved!")
 
-    # Fetch doses from DB
+    # Fetch doses
     doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
@@ -182,7 +181,6 @@ else:
     if doses.empty:
         st.info("No doses logged yet.")
     else:
-        # Ensure correct column names
         if "amount" in doses.columns and "compound" in doses.columns and "date" in doses.columns:
             doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
             summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
