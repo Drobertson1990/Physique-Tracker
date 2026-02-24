@@ -117,7 +117,7 @@ if st.session_state.user is None:
         st.session_state.user = user.id
         st.success("Logged in")
         st.experimental_rerun()   # <- force the app to reload with session
-    else:
+        else:
         st.error("Invalid login")
 else:
 
