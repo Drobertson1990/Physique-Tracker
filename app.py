@@ -150,7 +150,7 @@ else:
     # ----------------------
     # DOSING PAGE
     # ----------------------
-    if page == "Dosing":
+   if page == "Dosing":
     st.header("Log Dose")
 
     # Prepopulated compounds
