@@ -45,45 +45,36 @@ if "page" not in st.session_state:
 # LOGIN / REGISTER
 # ----------------------
 st.sidebar.title("User Authentication")
-auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])  # must be top-level
+auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
 
 email_input = st.sidebar.text_input("Email")
 password_input = st.sidebar.text_input("Password", type="password")
 
-# Flag to trigger safe rerun after login
-login_success = False
-
-if auth_mode == "Register":
-    if st.sidebar.button("Register"):
-        if email_input.strip() and password_input.strip():
-            existing = session.query(User).filter_by(email=email_input).first()
-            if existing:
-                st.sidebar.error("User already exists")
-            else:
-                new_user = User(email=email_input)
-                new_user.set_password(password_input)
-                session.add(new_user)
-                session.commit()
-                st.sidebar.success("User registered! You can now log in.")
+# Register new user
+if auth_mode == "Register" and st.sidebar.button("Register"):
+    if email_input.strip() and password_input.strip():
+        existing = session.query(User).filter_by(email=email_input).first()
+        if existing:
+            st.sidebar.error("User already exists")
         else:
-            st.sidebar.error("Enter email and password")
+            new_user = User(email=email_input)
+            new_user.set_password(password_input)
+            session.add(new_user)
+            session.commit()
+            st.sidebar.success("User registered! You can now log in.")
+    else:
+        st.sidebar.error("Enter email and password")
 
-elif auth_mode == "Login":
-    if st.sidebar.button("Login"):
-        user = session.query(User).filter_by(email=email_input).first()
-        if user and user.check_password(password_input):
-            st.session_state.logged_in = True
-            st.session_state.user_id = user.id
-            st.session_state.user_email = user.email
-            login_success = True  # flag to rerun safely
-        else:
-            st.sidebar.error("Invalid credentials")
-
-# ----------------------
-# SAFE RERUN AFTER LOGIN
-# ----------------------
-if login_success:
-    st.experimental_rerun()  # triggers a reload once after login
+# Login existing user
+if auth_mode == "Login" and st.sidebar.button("Login"):
+    user = session.query(User).filter_by(email=email_input).first()
+    if user and user.check_password(password_input):
+        st.session_state.logged_in = True
+        st.session_state.user_id = user.id
+        st.session_state.user_email = user.email
+        st.success(f"Logged in as {st.session_state.user_email}")
+    else:
+        st.sidebar.error("Invalid credentials")
 
 # ----------------------
 # NAVIGATION
