@@ -58,7 +58,7 @@ Base.metadata.create_all(engine)
 # ----------------------
 for key in ["user_id", "logged_in", "user", "page"]:
     if key not in st.session_state:
-        st.session_state[key] = None if key in ["user_id", "user"] else False
+        st.session_state[key] = None if key in ["user_id","user"] else False
 
 # ----------------------
 # LOGIN / REGISTER
@@ -91,7 +91,7 @@ elif auth_mode == "Login":
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
             st.session_state.user = user
-            st.session_state.page = "Dosing"  # default page after login
+            st.session_state.page = "Meals"  # default page after login
             st.success(f"Logged in as {email_input}")
             st.experimental_rerun()
         else:
@@ -106,7 +106,7 @@ if st.session_state.logged_in:
         "Select Page",
         ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"],
         index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos"].index(
-            st.session_state.page if st.session_state.page else "Dosing"
+            st.session_state.page if st.session_state.page else "Meals"
         )
     )
 # ----------------------
@@ -311,34 +311,32 @@ if st.session_state.logged_in:
             st.plotly_chart(fig)
         else:
             st.error("Dose table missing expected columns.")
-  # -----------------------
+ # ----------------------
 # MEALS & CALORIE TRACKER PAGE
-# -----------------------
+# ----------------------
 if st.session_state.logged_in and st.session_state.page == "Meals":
     st.header("Meals & Calorie Tracker")
     user_id = st.session_state.user_id
 
-    # -----------------------
-    # PREPOPULATED FOODS
-    # -----------------------
+    # Default foods
     default_foods = {
-        "Chicken Breast (100g)": {"Calories": 165, "Protein": 31, "Carbs": 0, "Fats": 3.6},
-        "Egg (1 large)": {"Calories": 70, "Protein": 6, "Carbs": 0.4, "Fats": 5},
-        "Oatmeal (1 cup)": {"Calories": 154, "Protein": 6, "Carbs": 27, "Fats": 3},
-        "Almonds (28g)": {"Calories": 161, "Protein": 6, "Carbs": 6, "Fats": 14},
-        "Brown Rice (1 cup)": {"Calories": 216, "Protein": 5, "Carbs": 45, "Fats": 1.8},
-        "Broccoli (100g)": {"Calories": 55, "Protein": 3.7, "Carbs": 11, "Fats": 0.6},
-        "Salmon (100g)": {"Calories": 208, "Protein": 20, "Carbs": 0, "Fats": 13},
+        "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
+        "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
+        "Oatmeal (1 cup)": {"Calories":154, "Protein":6, "Carbs":27, "Fats":3},
+        "Almonds (28g)": {"Calories":161, "Protein":6, "Carbs":6, "Fats":14},
+        "Brown Rice (1 cup)": {"Calories":216, "Protein":5, "Carbs":45, "Fats":1.8},
+        "Broccoli (100g)": {"Calories":55, "Protein":3.7, "Carbs":11, "Fats":0.6},
+        "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
     }
 
-    # Fetch user-defined foods
+    # Fetch user foods
     user_foods = pd.read_sql(
         session.query(FoodItem).filter_by(user_id=user_id).statement,
         engine
     )
     user_food_dict = {
         row["name"]: {"Calories": row["calories"], "Protein": row["protein"], "Carbs": row["carbs"], "Fats": row["fats"]}
-        for idx, row in user_foods.iterrows()
+        for idx,row in user_foods.iterrows()
     }
 
     all_foods = {**default_foods, **user_food_dict}
@@ -385,10 +383,10 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
             session.add(MealLog(
                 user_id=user_id,
                 meal=food_name,
-                calories=calories * quantity,
-                protein=protein * quantity,
-                carbs=carbs * quantity,
-                fats=fats * quantity,
+                calories=calories*quantity,
+                protein=protein*quantity,
+                carbs=carbs*quantity,
+                fats=fats*quantity,
                 date=date
             ))
             session.commit()
@@ -412,7 +410,7 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
         today = datetime.date.today()
         today_meals = meals[meals["date"] == pd.to_datetime(today)]
         if not today_meals.empty:
-            daily_totals = today_meals[["protein", "carbs", "fats"]].sum()
+            daily_totals = today_meals[["protein","carbs","fats"]].sum()
             fig_pie = px.pie(
                 values=daily_totals.values,
                 names=daily_totals.index,
@@ -422,27 +420,27 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
 
         # Daily stacked macro chart
         st.subheader("Daily Macros Over Time")
-        daily_summary = meals.groupby("date")[["protein", "carbs", "fats"]].sum().reset_index()
+        daily_summary = meals.groupby("date")[["protein","carbs","fats"]].sum().reset_index()
         fig_daily = px.bar(
             daily_summary,
             x="date",
-            y=["protein", "carbs", "fats"],
+            y=["protein","carbs","fats"],
             title="Daily Macros",
-            labels={"value": "Grams", "date": "Date"},
-            color_discrete_map={"protein": "#EF553B", "carbs": "#636EFA", "fats": "#00CC96"}
+            labels={"value":"Grams", "date":"Date"},
+            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
         )
         st.plotly_chart(fig_daily)
 
         # Weekly stacked macro chart
         st.subheader("Weekly Macros")
-        weekly_summary = meals.groupby("week")[["protein", "carbs", "fats"]].sum().reset_index()
+        weekly_summary = meals.groupby("week")[["protein","carbs","fats"]].sum().reset_index()
         fig_weekly = px.bar(
             weekly_summary,
             x="week",
-            y=["protein", "carbs", "fats"],
+            y=["protein","carbs","fats"],
             title="Weekly Macros",
-            labels={"value": "Grams", "week": "Week"},
-            color_discrete_map={"protein": "#EF553B", "carbs": "#636EFA", "fats": "#00CC96"}
+            labels={"value":"Grams", "week":"Week"},
+            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
         )
         st.plotly_chart(fig_weekly)
     # ----------------------
