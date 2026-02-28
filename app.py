@@ -101,7 +101,9 @@ elif auth_mode == "Login":
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title("Navigation")
-    st.session_state.page = st.sidebar.selectbox("Select Page", ["Meals"])  # Add more pages here later
+    st.session_state.page = st.sidebar.selectbox(
+        "Select Page", ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"]
+    )
 
 # ----------------------
 # PAGE LOGIC
@@ -169,8 +171,9 @@ else:
     # ----------------------
     # DOSING PAGE
     # ----------------------
-if page == "Dosing":
-    st.header("Log Dose")
+if st.session_state.logged_in:
+    if st.session_state.page == "Dosing":
+        st.header("Dosing Tracker Page")
 
     # ----------------------
     # Prepopulated compounds with detailed info
@@ -307,9 +310,8 @@ if page == "Dosing":
    # -----------------------
 # MEALS & CALORIE TRACKER PAGE
 # -----------------------
-if page == "Meals":
-    st.header("Meal & Calorie Tracker")
-
+elif st.session_state.page == "Meals":
+        st.header("Meals & Calorie Tracker")
     if not st.session_state.logged_in:
         st.warning("Please log in to track meals.")
     else:
