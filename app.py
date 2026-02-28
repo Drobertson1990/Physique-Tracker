@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -31,12 +30,15 @@ class User(Base):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-class Dose(Base):
-    __tablename__ = "doses"
+class MealLog(Base):
+    __tablename__ = "meal_logs"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer)
-    compound = Column(String)
-    amount = Column(Float)
+    meal = Column(String)
+    calories = Column(Float)
+    protein = Column(Float)
+    carbs = Column(Float)
+    fats = Column(Float)
     date = Column(Date)
 
 class FoodItem(Base):
@@ -49,64 +51,64 @@ class FoodItem(Base):
     carbs = Column(Float)
     fats = Column(Float)
 
-class MealLog(Base):
-    __tablename__ = "meal_logs"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    meal = Column(String)
-    calories = Column(Float)
-    protein = Column(Float)
-    carbs = Column(Float)
-    fats = Column(Float)
-    date = Column(Date)
-
-class Workout(Base):
-    __tablename__ = "workouts"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    exercise = Column(String)
-    sets = Column(Integer)
-    reps = Column(Integer)
-    weight = Column(Float)
-    date = Column(Date)
-
-class Bloodwork(Base):
-    __tablename__ = "bloodwork"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    test = Column(String)
-    value = Column(Float)
-    date = Column(Date)
-
-class Photo(Base):
-    __tablename__ = "photos"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    path = Column(String)
-    date = Column(Date)
-
 Base.metadata.create_all(engine)
 
 # ----------------------
-# SESSION STATE INITIALIZATION
+# SESSION STATE INIT
 # ----------------------
-# THIS MUST COME BEFORE ANY 'st.session_state.user' OR 'logged_in' ACCESS
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
+for key in ["user_id", "logged_in", "user", "page"]:
+    if key not in st.session_state:
+        st.session_state[key] = None if key in ["user_id","user"] else False
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# ----------------------
+# LOGIN / REGISTER
+# ----------------------
+st.sidebar.title("User Authentication")
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
+
+email_input = st.sidebar.text_input("Email")
+password_input = st.sidebar.text_input("Password", type="password")
+
+if auth_mode == "Register":
+    if st.sidebar.button("Register"):
+        if email_input and password_input:
+            existing = session.query(User).filter_by(email=email_input).first()
+            if existing:
+                st.sidebar.error("User already exists")
+            else:
+                new_user = User(email=email_input)
+                new_user.set_password(password_input)
+                session.add(new_user)
+                session.commit()
+                st.sidebar.success("User registered! You can now log in.")
+        else:
+            st.sidebar.error("Enter email and password")
+elif auth_mode == "Login":
+    if st.sidebar.button("Login"):
+        user = session.query(User).filter_by(email=email_input).first()
+        if user and user.check_password(password_input):
+            st.session_state.logged_in = True
+            st.session_state.user_id = user.id
+            st.session_state.user = user
+            st.success(f"Logged in as {email_input}")
+            st.experimental_rerun()
+        else:
+            st.sidebar.error("Invalid credentials")
+
 # ----------------------
 # SIDEBAR NAVIGATION
 # ----------------------
-if st.session_state.user:
-    page = st.sidebar.radio("Navigation", ["Dashboard","Dosing","Meals","Workouts","Bloodwork","Photos","Logout"])
-else:
-    choice = st.sidebar.radio("Account", ["Login", "Register"])
-    page = None
+if st.session_state.logged_in:
+    st.sidebar.title("Navigation")
+    st.session_state.page = st.sidebar.selectbox("Select Page", ["Meals"])  # Add more pages here later
+
+# ----------------------
+# PAGE LOGIC
+# ----------------------
+if st.session_state.logged_in and st.session_state.page == "Meals":
+    st.header("Meal & Calorie Tracker")
+    user_id = st.session_state.user_id
 
 # ----------------------
 # LOGIN / REGISTER / LOGOUT
@@ -313,139 +315,133 @@ if page == "Meals":
     else:
         user_id = st.session_state.user_id
 
-        # -----------------------
-        # PREPOPULATED FOODS
-        # -----------------------
-        default_foods = {
-            "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
-            "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
-            "Oatmeal (1 cup)": {"Calories":154, "Protein":6, "Carbs":27, "Fats":3},
-            "Almonds (28g)": {"Calories":161, "Protein":6, "Carbs":6, "Fats":14},
-            "Brown Rice (1 cup)": {"Calories":216, "Protein":5, "Carbs":45, "Fats":1.8},
-            "Broccoli (100g)": {"Calories":55, "Protein":3.7, "Carbs":11, "Fats":0.6},
-            "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
-        }
+  # -----------------------
+    # PREPOPULATED FOODS
+    # -----------------------
+    default_foods = {
+        "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
+        "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
+        "Oatmeal (1 cup)": {"Calories":154, "Protein":6, "Carbs":27, "Fats":3},
+        "Almonds (28g)": {"Calories":161, "Protein":6, "Carbs":6, "Fats":14},
+        "Brown Rice (1 cup)": {"Calories":216, "Protein":5, "Carbs":45, "Fats":1.8},
+        "Broccoli (100g)": {"Calories":55, "Protein":3.7, "Carbs":11, "Fats":0.6},
+        "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
+    }
 
-        # Fetch user-defined foods
-        user_foods = pd.read_sql(
-            session.query(FoodItem).filter_by(user_id=user_id).statement,
-            engine
-        )
-        user_food_dict = {
-            row["name"]: {"Calories": row["calories"], "Protein": row["protein"], "Carbs": row["carbs"], "Fats": row["fats"]}
-            for idx,row in user_foods.iterrows()
-        }
+    # Fetch user foods
+    user_foods = pd.read_sql(
+        session.query(FoodItem).filter_by(user_id=user_id).statement,
+        engine
+    )
+    user_food_dict = {
+        row["name"]: {"Calories": row["calories"], "Protein": row["protein"], "Carbs": row["carbs"], "Fats": row["fats"]}
+        for idx,row in user_foods.iterrows()
+    }
 
-        all_foods = {**default_foods, **user_food_dict}
-        food_options = list(all_foods.keys()) + ["Add Custom Food"]
+    all_foods = {**default_foods, **user_food_dict}
+    food_options = list(all_foods.keys()) + ["Add Custom Food"]
 
-        food_choice = st.selectbox("Select Food", food_options)
+    food_choice = st.selectbox("Select Food", food_options)
 
-        if food_choice == "Add Custom Food":
-            food_name = st.text_input("Food Name")
-            calories = st.number_input("Calories", min_value=0)
-            protein = st.number_input("Protein (g)", min_value=0)
-            carbs = st.number_input("Carbs (g)", min_value=0)
-            fats = st.number_input("Fats (g)", min_value=0)
+    if food_choice == "Add Custom Food":
+        food_name = st.text_input("Food Name")
+        calories = st.number_input("Calories", min_value=0)
+        protein = st.number_input("Protein (g)", min_value=0)
+        carbs = st.number_input("Carbs (g)", min_value=0)
+        fats = st.number_input("Fats (g)", min_value=0)
+    else:
+        food_name = food_choice
+        calories = all_foods[food_choice]["Calories"]
+        protein = all_foods[food_choice]["Protein"]
+        carbs = all_foods[food_choice]["Carbs"]
+        fats = all_foods[food_choice]["Fats"]
+
+    quantity = st.number_input("Quantity", min_value=1, value=1)
+    date = st.date_input("Date", datetime.date.today())
+
+    if st.button("Log Meal"):
+        if food_name.strip() == "" or calories <= 0:
+            st.error("Enter a valid food and calories")
         else:
-            food_name = food_choice
-            calories = all_foods[food_choice]["Calories"]
-            protein = all_foods[food_choice]["Protein"]
-            carbs = all_foods[food_choice]["Carbs"]
-            fats = all_foods[food_choice]["Fats"]
+            # Save custom food if not default
+            if food_choice == "Add Custom Food":
+                exists = session.query(FoodItem).filter_by(name=food_name, user_id=user_id).first()
+                if not exists:
+                    session.add(FoodItem(
+                        user_id=user_id,
+                        name=food_name,
+                        calories=calories,
+                        protein=protein,
+                        carbs=carbs,
+                        fats=fats
+                    ))
+                    session.commit()
+                    st.success(f"Custom food '{food_name}' saved!")
 
-        quantity = st.number_input("Quantity", min_value=1, value=1)
-        date = st.date_input("Date", datetime.date.today())
+            # Log the meal
+            session.add(MealLog(
+                user_id=user_id,
+                meal=food_name,
+                calories=calories*quantity,
+                protein=protein*quantity,
+                carbs=carbs*quantity,
+                fats=fats*quantity,
+                date=date
+            ))
+            session.commit()
+            st.success(f"{food_name} logged!")
 
-        if st.button("Log Meal"):
-            if food_name.strip() == "" or calories <= 0:
-                st.error("Enter a valid food and calories")
-            else:
-                # Save custom food if not default
-                if food_choice == "Add Custom Food":
-                    exists = session.query(FoodItem).filter_by(name=food_name, user_id=user_id).first()
-                    if not exists:
-                        session.add(FoodItem(
-                            user_id=user_id,
-                            name=food_name,
-                            calories=calories,
-                            protein=protein,
-                            carbs=carbs,
-                            fats=fats
-                        ))
-                        session.commit()
-                        st.success(f"Custom food '{food_name}' saved!")
+    # -----------------------
+    # FETCH LOGGED MEALS
+    # -----------------------
+    meals = pd.read_sql(
+        session.query(MealLog).filter_by(user_id=user_id).statement,
+        engine
+    )
 
-                # Log the meal
-                session.add(MealLog(
-                    user_id=user_id,
-                    meal=food_name,
-                    calories=calories*quantity,
-                    protein=protein*quantity,
-                    carbs=carbs*quantity,
-                    fats=fats*quantity,
-                    date=date
-                ))
-                session.commit()
-                st.success(f"{food_name} logged!")
+    if meals.empty:
+        st.info("No meals logged yet.")
+    else:
+        meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
 
-        # -----------------------
-        # FETCH LOGGED MEALS
-        # -----------------------
-        meals = pd.read_sql(
-            session.query(MealLog).filter_by(user_id=user_id).statement,
-            engine
+        # Daily Pie Chart
+        st.subheader("Today's Macro Breakdown")
+        today = datetime.date.today()
+        today_meals = meals[meals["date"] == pd.to_datetime(today)]
+        if not today_meals.empty:
+            daily_totals = today_meals[["protein","carbs","fats"]].sum()
+            fig_pie = px.pie(
+                values=daily_totals.values,
+                names=daily_totals.index,
+                title=f"Macros for {today}"
+            )
+            st.plotly_chart(fig_pie)
+
+        # Daily stacked macro chart
+        st.subheader("Daily Macros Over Time")
+        daily_summary = meals.groupby("date")[["protein","carbs","fats"]].sum().reset_index()
+        fig_daily = px.bar(
+            daily_summary,
+            x="date",
+            y=["protein","carbs","fats"],
+            title="Daily Macros",
+            labels={"value":"Grams", "date":"Date"},
+            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
         )
+        st.plotly_chart(fig_daily)
 
-        if meals.empty:
-            st.info("No meals logged yet.")
-        else:
-            meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
-
-            # -----------------------
-            # DAILY MACRO PIE CHART
-            # -----------------------
-            st.subheader("Today's Macro Breakdown")
-            today = datetime.date.today()
-            today_meals = meals[meals["date"] == pd.to_datetime(today)]
-            if not today_meals.empty:
-                daily_totals = today_meals[["protein","carbs","fats"]].sum()
-                fig_pie = px.pie(
-                    values=daily_totals.values,
-                    names=daily_totals.index,
-                    title=f"Macros for {today}"
-                )
-                st.plotly_chart(fig_pie)
-
-            # -----------------------
-            # DAILY STACKED MACRO CHART
-            # -----------------------
-            st.subheader("Daily Macros Over Time")
-            daily_summary = meals.groupby("date")[["protein","carbs","fats"]].sum().reset_index()
-            fig_daily = px.bar(
-                daily_summary,
-                x="date",
-                y=["protein","carbs","fats"],
-                title="Daily Macros",
-                labels={"value":"Grams", "date":"Date"},
-                color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
-            )
-            st.plotly_chart(fig_daily)
-
-            # -----------------------
-            # WEEKLY MACRO STACKED CHART
-            # -----------------------
-            st.subheader("Weekly Macros")
-            weekly_summary = meals.groupby("week")[["protein","carbs","fats"]].sum().reset_index()
-            fig_weekly = px.bar(
-                weekly_summary,
-                x="week",
-                y=["protein","carbs","fats"],
-                title="Weekly Macros",
-                labels={"value":"Grams", "week":"Week"},
-                color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
-            )
-            st.plotly_chart(fig_weekly)
+        # Weekly stacked macro chart
+        st.subheader("Weekly Macros")
+        weekly_summary = meals.groupby("week")[["protein","carbs","fats"]].sum().reset_index()
+        fig_weekly = px.bar(
+            weekly_summary,
+            x="week",
+            y=["protein","carbs","fats"],
+            title="Weekly Macros",
+            labels={"value":"Grams", "week":"Week"},
+            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
+        )
+        st.plotly_chart(fig_weekly)
     # ----------------------
     # WORKOUTS PAGE
     # ----------------------
