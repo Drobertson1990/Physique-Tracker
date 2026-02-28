@@ -312,8 +312,6 @@ if st.session_state.logged_in:
 # -----------------------
 elif st.session_state.page == "Meals":
         st.header("Meals & Calorie Tracker")
-    if not st.session_state.logged_in:
-        st.warning("Please log in to track meals.")
     else:
         user_id = st.session_state.user_id
 
