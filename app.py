@@ -106,21 +106,45 @@ if st.session_state.logged_in:
         st.write(f"User ID: {user_id}")
 
     # ----------------------
-    # DASHBOARD
-    # ----------------------
-    if page == "Dashboard":
-        st.header("Overview")
-        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
-        meals = pd.read_sql(
-    session.query(MealLog).filter_by(user_id=st.session_state.user_id).statement,
-    engine
-)
-        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
+# DASHBOARD
+# ----------------------
+if st.session_state.logged_in and st.session_state.page == "Dashboard":
+    st.header("Overview")
+    user_id = st.session_state.user_id  # always use session_state
 
-        col1,col2,col3 = st.columns(3)
-        col1.metric("Doses Logged", len(doses))
-        col2.metric("Meals Logged", len(meals))
-        col3.metric("Workouts Logged", len(workouts))
+    # Fetch data safely
+    doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
+    meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
+    workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
+
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Doses Logged", len(doses))
+    col2.metric("Meals Logged", len(meals))
+    col3.metric("Workouts Logged", len(workouts))
+
+    # Optional: charts or summaries can go here
+    st.subheader("Weekly Overview")
+    if not meals.empty:
+        meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
+        weekly_meals = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
+        st.dataframe(weekly_meals)
+    else:
+        st.info("No meals logged yet.")
+
+    if not doses.empty:
+        doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
+        weekly_doses = doses.groupby("week")["amount"].sum().reset_index()
+        st.dataframe(weekly_doses)
+    else:
+        st.info("No doses logged yet.")
+
+    if not workouts.empty:
+        workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
+        weekly_workouts = workouts.groupby("week")[["sets","reps","weight"]].sum().reset_index()
+        st.dataframe(weekly_workouts)
+    else:
+        st.info("No workouts logged yet.")
 
     # ----------------------
     # DOSING PAGE
