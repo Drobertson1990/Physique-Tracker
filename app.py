@@ -42,98 +42,68 @@ if "page" not in st.session_state:
     st.session_state.page = "Meals"
 
 # ----------------------
-# LOGIN / REGISTER
+# SIDEBAR: AUTH & NAVIGATION
 # ----------------------
 st.sidebar.title("User Authentication")
-auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
 
-email_input = st.sidebar.text_input("Email")
-password_input = st.sidebar.text_input("Password", type="password")
+if not st.session_state.logged_in:
+    auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
+    email_input = st.sidebar.text_input("Email")
+    password_input = st.sidebar.text_input("Password", type="password")
 
-# Register new user
-if auth_mode == "Register" and st.sidebar.button("Register"):
-    if email_input.strip() and password_input.strip():
-        existing = session.query(User).filter_by(email=email_input).first()
-        if existing:
-            st.sidebar.error("User already exists")
+    if auth_mode == "Register" and st.sidebar.button("Register"):
+        if email_input.strip() and password_input.strip():
+            existing = session.query(User).filter_by(email=email_input).first()
+            if existing:
+                st.sidebar.error("User already exists")
+            else:
+                new_user = User(email=email_input)
+                new_user.set_password(password_input)
+                session.add(new_user)
+                session.commit()
+                st.sidebar.success("User registered! You can now log in.")
         else:
-            new_user = User(email=email_input)
-            new_user.set_password(password_input)
-            session.add(new_user)
-            session.commit()
-            st.sidebar.success("User registered! You can now log in.")
-    else:
-        st.sidebar.error("Enter email and password")
+            st.sidebar.error("Enter email and password")
 
-# Login existing user
-if auth_mode == "Login" and st.sidebar.button("Login"):
-    user = session.query(User).filter_by(email=email_input).first()
-    if user and user.check_password(password_input):
-        st.session_state.logged_in = True
-        st.session_state.user_id = user.id
-        st.session_state.user_email = user.email
-        st.success(f"Logged in as {st.session_state.user_email}")
-    else:
-        st.sidebar.error("Invalid credentials")
+    if auth_mode == "Login" and st.sidebar.button("Login"):
+        user = session.query(User).filter_by(email=email_input).first()
+        if user and user.check_password(password_input):
+            st.session_state.logged_in = True
+            st.session_state.user_id = user.id
+            st.session_state.user_email = user.email
+            st.success(f"Logged in as {st.session_state.user_email}")
+        else:
+            st.sidebar.error("Invalid credentials")
 
-# ----------------------
-# NAVIGATION
-# ----------------------
-if st.session_state.logged_in:
+else:
+    # ----------------------
+    # NAVIGATION AFTER LOGIN
+    # ----------------------
     st.sidebar.title("Navigation")
     st.session_state.page = st.sidebar.selectbox(
         "Select Page",
-        ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"],
-        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos"].index(st.session_state.page)
+        ["Dosing", "Meals", "Workout", "Bloodwork", "Photos", "Logout"],
+        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos", "Logout"].index(st.session_state.page)
     )
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
-else:
-    st.info("Please log in or register to access the app.")
-# ----------------------
-# PAGE LOGIC
-# ----------------------
-if st.session_state.logged_in and st.session_state.page == "Meals":
-    st.header("Meal & Calorie Tracker")
-    user_id = st.session_state.user_id
+
+    if st.session_state.page == "Logout":
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.user_email = ""
+        st.session_state.page = "Meals"
+        st.success("Logged out successfully")
+        st.experimental_rerun()  # safe here after logout
 
 # ----------------------
-# LOGIN / REGISTER / LOGOUT
+# PAGE LOGIC EXAMPLE
 # ----------------------
-if st.session_state.user is None:
-
-    if auth_mode == "Register":
-        st.subheader("Create Account")
-        email = st.text_input("Email", key="reg_email")
-        password = st.text_input("Password", type="password", key="reg_pass")
-        if st.button("Create Account"):
-            if session.query(User).filter_by(email=email).first():
-                st.error("Email already exists")
-            else:
-                user = User(email=email)
-                user.set_password(password)
-                session.add(user)
-                session.commit()
-                st.success("Account created! Please log in.")
-
-    elif auth_mode == "Login":
-        st.subheader("Login")
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pass")
-        if st.button("Login"):
-            user = session.query(User).filter_by(email=email).first()
-            if user and user.check_password(password):
-                st.session_state.user = user.id
-                st.success("Logged in successfully!")
-            else:
-                st.error("Invalid login credentials")
-
-else:
-    # Define user_id after login
-    user_id = st.session_state.user
-
-    if page == "Logout":
-        st.session_state.user = None
-        st.success("Logged out")
+if st.session_state.logged_in:
+    if st.session_state.page == "Meals":
+        st.header("Meal & Calorie Tracker")
+        # user_id is safe to use
+        user_id = st.session_state.user_id
+        st.write(f"User ID: {user_id}")
 
     # ----------------------
     # DASHBOARD
