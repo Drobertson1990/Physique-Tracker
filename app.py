@@ -59,43 +59,31 @@ Base.metadata.create_all(engine)
 for key in ["user_id", "logged_in", "user", "page"]:
     if key not in st.session_state:
         st.session_state[key] = None if key in ["user_id","user"] else False
+if "rerun_after_login" not in st.session_state:
+    st.session_state.rerun_after_login = False
 
 # ----------------------
 # LOGIN / REGISTER
 # ----------------------
-st.sidebar.title("User Authentication")
-auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
-
-email_input = st.sidebar.text_input("Email")
-password_input = st.sidebar.text_input("Password", type="password")
-
-if auth_mode == "Register":
-    if st.sidebar.button("Register"):
-        if email_input and password_input:
-            existing = session.query(User).filter_by(email=email_input).first()
-            if existing:
-                st.sidebar.error("User already exists")
-            else:
-                new_user = User(email=email_input)
-                new_user.set_password(password_input)
-                session.add(new_user)
-                session.commit()
-                st.sidebar.success("User registered! You can now log in.")
-        else:
-            st.sidebar.error("Enter email and password")
-
-elif auth_mode == "Login":
+if auth_mode == "Login":
     if st.sidebar.button("Login"):
         user = session.query(User).filter_by(email=email_input).first()
         if user and user.check_password(password_input):
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
             st.session_state.user = user
-            st.session_state.page = "Meals"  # default page after login
+            st.session_state.page = "Meals"  # default page
+            st.session_state.rerun_after_login = True
             st.success(f"Logged in as {email_input}")
-            st.experimental_rerun()
         else:
             st.sidebar.error("Invalid credentials")
+
+# ----------------------
+# SAFE RERUN AFTER LOGIN
+# ----------------------
+if st.session_state.rerun_after_login:
+    st.session_state.rerun_after_login = False
+    st.experimental_rerun()
 
 # ----------------------
 # NAVIGATION (only show if logged in)
