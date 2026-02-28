@@ -1,7 +1,10 @@
 import streamlit as st
-from sqlalchemy import create_engine, Column, Integer, String
+import pandas as pd
+import datetime  # <--- add this line
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
+import plotly.express as px
 
 # ----------------------
 # DATABASE SETUP
