@@ -115,7 +115,7 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
 # ----------------------
 if st.session_state.user is None:
 
-    if choice == "Register":
+    if auth_mode == "Register":
         st.subheader("Create Account")
         email = st.text_input("Email", key="reg_email")
         password = st.text_input("Password", type="password", key="reg_pass")
@@ -129,7 +129,7 @@ if st.session_state.user is None:
                 session.commit()
                 st.success("Account created! Please log in.")
 
-    if choice == "Login":
+    elif auth_mode == "Login":
         st.subheader("Login")
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Password", type="password", key="login_pass")
