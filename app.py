@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-import datetime  # <--- add this line
+import datetime
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -30,6 +31,60 @@ class User(Base):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+class Dose(Base):
+    __tablename__ = "doses"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    compound = Column(String)
+    amount = Column(Float)
+    date = Column(Date)
+
+class MealLog(Base):
+    __tablename__ = "meals"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    meal = Column(String)
+    calories = Column(Float)
+    protein = Column(Float)
+    carbs = Column(Float)
+    fats = Column(Float)
+    date = Column(Date)
+
+class FoodItem(Base):
+    __tablename__ = "food_items"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    name = Column(String)
+    calories = Column(Float)
+    protein = Column(Float)
+    carbs = Column(Float)
+    fats = Column(Float)
+
+class Workout(Base):
+    __tablename__ = "workouts"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    exercise = Column(String)
+    sets = Column(Integer)
+    reps = Column(Integer)
+    weight = Column(Float)
+    date = Column(Date)
+
+class Bloodwork(Base):
+    __tablename__ = "bloodwork"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    test = Column(String)
+    value = Column(Float)
+    date = Column(Date)
+
+class Photo(Base):
+    __tablename__ = "photos"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    path = Column(String)
+    date = Column(Date)
+
 Base.metadata.create_all(engine)
 
 # ----------------------
@@ -45,7 +100,7 @@ if "page" not in st.session_state:
     st.session_state.page = "Meals"
 
 # ----------------------
-# SIDEBAR: AUTH & NAVIGATION
+# AUTH & NAVIGATION
 # ----------------------
 st.sidebar.title("User Authentication")
 
@@ -79,9 +134,6 @@ if not st.session_state.logged_in:
             st.sidebar.error("Invalid credentials")
 
 else:
-    # ----------------------
-    # NAVIGATION AFTER LOGIN
-    # ----------------------
     st.sidebar.title("Navigation")
     st.session_state.page = st.sidebar.selectbox(
         "Select Page",
@@ -96,17 +148,41 @@ else:
         st.session_state.user_email = ""
         st.session_state.page = "Meals"
         st.success("Logged out successfully")
-        st.experimental_rerun()  # safe here after logout
+        st.experimental_rerun()
 
 # ----------------------
-# PAGE LOGIC EXAMPLE
+# PAGE LOGIC
 # ----------------------
-if st.session_state.logged_in:
-    if st.session_state.page == "Meals":
-        st.header("Meal & Calorie Tracker")
-        # user_id is safe to use
-        user_id = st.session_state.user_id
-        st.write(f"User ID: {user_id}")
+user_id = st.session_state.user_id
+
+# DOSING PAGE
+if st.session_state.logged_in and st.session_state.page == "Dosing":
+    st.header("Dosing Tracker Page")
+    # --- keep your compounds and dose logging as-is ---
+    # --- just ensure `datetime.date` is imported ---
+    # Your existing dosing page code here (unchanged) ...
+
+# MEALS PAGE
+if st.session_state.logged_in and st.session_state.page == "Meals":
+    st.header("Meals & Calorie Tracker")
+    # Your existing Meals page code here (unchanged)
+
+# WORKOUT PAGE
+if st.session_state.logged_in and st.session_state.page == "Workout":
+    st.header("Log Workout")
+    # Your existing Workout page code here (unchanged)
+
+# BLOODWORK PAGE
+if st.session_state.logged_in and st.session_state.page == "Bloodwork":
+    st.header("Log Bloodwork")
+    # Your existing Bloodwork page code here (unchanged)
+
+# PHOTOS PAGE
+if st.session_state.logged_in and st.session_state.page == "Photos":
+    st.header("Progress Photos")
+    if not os.path.exists("photos"):
+        os.makedirs("photos")
+    # Your existing Photos page code here (unchanged)
 
     # ----------------------
 # DASHBOARD
