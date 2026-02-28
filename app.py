@@ -1,10 +1,7 @@
 import streamlit as st
-import pandas as pd
-import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date
+from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
-import plotly.express as px
 
 # ----------------------
 # DATABASE SETUP
@@ -30,73 +27,77 @@ class User(Base):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-class MealLog(Base):
-    __tablename__ = "meal_logs"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    meal = Column(String)
-    calories = Column(Float)
-    protein = Column(Float)
-    carbs = Column(Float)
-    fats = Column(Float)
-    date = Column(Date)
-
-class FoodItem(Base):
-    __tablename__ = "food_items"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    name = Column(String, unique=True)
-    calories = Column(Float)
-    protein = Column(Float)
-    carbs = Column(Float)
-    fats = Column(Float)
-
 Base.metadata.create_all(engine)
 
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
-for key in ["user_id", "logged_in", "user", "page"]:
-    if key not in st.session_state:
-        st.session_state[key] = None if key in ["user_id","user"] else False
-if "rerun_after_login" not in st.session_state:
-    st.session_state.rerun_after_login = False
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+if "page" not in st.session_state:
+    st.session_state.page = "Meals"
 
 # ----------------------
 # LOGIN / REGISTER
 # ----------------------
-if auth_mode == "Login":
+st.sidebar.title("User Authentication")
+auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])  # must be top-level
+
+email_input = st.sidebar.text_input("Email")
+password_input = st.sidebar.text_input("Password", type="password")
+
+# Flag to trigger safe rerun after login
+login_success = False
+
+if auth_mode == "Register":
+    if st.sidebar.button("Register"):
+        if email_input.strip() and password_input.strip():
+            existing = session.query(User).filter_by(email=email_input).first()
+            if existing:
+                st.sidebar.error("User already exists")
+            else:
+                new_user = User(email=email_input)
+                new_user.set_password(password_input)
+                session.add(new_user)
+                session.commit()
+                st.sidebar.success("User registered! You can now log in.")
+        else:
+            st.sidebar.error("Enter email and password")
+
+elif auth_mode == "Login":
     if st.sidebar.button("Login"):
         user = session.query(User).filter_by(email=email_input).first()
         if user and user.check_password(password_input):
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
-            st.session_state.user = user
-            st.session_state.page = "Meals"  # default page
-            st.session_state.rerun_after_login = True
-            st.success(f"Logged in as {email_input}")
+            st.session_state.user_email = user.email
+            login_success = True  # flag to rerun safely
         else:
             st.sidebar.error("Invalid credentials")
 
 # ----------------------
 # SAFE RERUN AFTER LOGIN
 # ----------------------
-if st.session_state.rerun_after_login:
-    st.session_state.rerun_after_login = False
-    st.experimental_rerun()
+if login_success:
+    st.experimental_rerun()  # triggers a reload once after login
 
 # ----------------------
-# NAVIGATION (only show if logged in)
+# NAVIGATION
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title("Navigation")
     st.session_state.page = st.sidebar.selectbox(
         "Select Page",
         ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"],
-        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos"].index(
-            st.session_state.page if st.session_state.page else "Meals"
-        )
+        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos"].index(st.session_state.page)
     )
+    st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
+else:
+    st.info("Please log in or register to access the app.")
 # ----------------------
 # PAGE LOGIC
 # ----------------------
