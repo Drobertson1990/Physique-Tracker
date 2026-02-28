@@ -288,27 +288,86 @@ if page == "Dosing":
     # ----------------------
     # MEALS PAGE
     # ----------------------
-    if page == "Meals":
-        st.header("Log Meal")
-        name = st.text_input("Meal Name")
-        calories = st.number_input("Calories",0)
-        protein = st.number_input("Protein",0)
-        carbs = st.number_input("Carbs",0)
-        fats = st.number_input("Fats",0)
-        date = st.date_input("Date", datetime.date.today())
+if page == "Meals":
+    st.header("Meal & Calorie Tracking")
 
-        if st.button("Save Meal"):
-            session.add(Meal(user_id=user_id,name=name,calories=calories,
-                             protein=protein,carbs=carbs,fats=fats,date=date))
+    # ----------------------
+    # Prepopulated meals
+    # ----------------------
+    meals_dict = {
+        "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
+        "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
+        "Oatmeal (1 cup)": {"Calories":154, "Protein":6, "Carbs":27, "Fats":3},
+        "Almonds (28g)": {"Calories":161, "Protein":6, "Carbs":6, "Fats":14},
+        "Brown Rice (1 cup)": {"Calories":216, "Protein":5, "Carbs":45, "Fats":1.8},
+        "Broccoli (100g)": {"Calories":55, "Protein":3.7, "Carbs":11, "Fats":0.6},
+        "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
+        # ... you can expand with more meals
+    }
+
+    meal_options = list(meals_dict.keys()) + ["Custom Meal"]
+    meal_choice = st.selectbox("Select Meal", meal_options)
+
+    if meal_choice == "Custom Meal":
+        meal_name = st.text_input("Enter Custom Meal Name")
+        calories = st.number_input("Calories", min_value=0)
+        protein = st.number_input("Protein (g)", min_value=0)
+        carbs = st.number_input("Carbs (g)", min_value=0)
+        fats = st.number_input("Fats (g)", min_value=0)
+    else:
+        meal_name = meal_choice
+        calories = meals_dict[meal_choice]["Calories"]
+        protein = meals_dict[meal_choice]["Protein"]
+        carbs = meals_dict[meal_choice]["Carbs"]
+        fats = meals_dict[meal_choice]["Fats"]
+
+    quantity = st.number_input("Quantity", min_value=1, value=1)
+    date = st.date_input("Date", datetime.date.today())
+
+    if st.button("Log Meal"):
+        if meal_name.strip() == "" or calories <= 0:
+            st.error("Please enter a valid meal and calories")
+        else:
+            total_calories = calories * quantity
+            total_protein = protein * quantity
+            total_carbs = carbs * quantity
+            total_fats = fats * quantity
+
+            # Assuming MealLog model exists
+            session.add(MealLog(
+                user_id=user_id,
+                meal=meal_name,
+                calories=total_calories,
+                protein=total_protein,
+                carbs=total_carbs,
+                fats=total_fats,
+                date=date
+            ))
             session.commit()
-            st.success("Meal saved!")
+            st.success("Meal logged!")
 
-        meals = pd.read_sql(session.query(Meal).filter_by(user_id=user_id).statement, engine)
-        if not meals.empty:
-            meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
-            summary = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
-            fig = px.line(summary, x="week", y=["calories","protein","carbs","fats"], title="Weekly Nutrition")
-            st.plotly_chart(fig)
+    # ----------------------
+    # Fetch meal logs from DB
+    # ----------------------
+    meals = pd.read_sql(
+        session.query(MealLog).filter_by(user_id=user_id).statement,
+        engine
+    )
+
+    if meals.empty:
+        st.info("No meals logged yet.")
+    else:
+        meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
+
+        # Daily summary chart
+        daily_summary = meals.groupby("date")[["calories","protein","carbs","fats"]].sum().reset_index()
+        st.subheader("Daily Nutrition")
+        st.line_chart(daily_summary.set_index("date"))
+
+        # Weekly summary chart
+        weekly_summary = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
+        st.subheader("Weekly Nutrition")
+        st.bar_chart(weekly_summary.set_index("week"))
 
     # ----------------------
     # WORKOUTS PAGE
