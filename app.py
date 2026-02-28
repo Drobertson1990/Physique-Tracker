@@ -58,13 +58,12 @@ Base.metadata.create_all(engine)
 # ----------------------
 for key in ["user_id", "logged_in", "user", "page"]:
     if key not in st.session_state:
-        st.session_state[key] = None if key in ["user_id","user"] else False
+        st.session_state[key] = None if key in ["user_id", "user"] else False
 
 # ----------------------
 # LOGIN / REGISTER
 # ----------------------
 st.sidebar.title("User Authentication")
-
 auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
 
 email_input = st.sidebar.text_input("Email")
@@ -84,6 +83,7 @@ if auth_mode == "Register":
                 st.sidebar.success("User registered! You can now log in.")
         else:
             st.sidebar.error("Enter email and password")
+
 elif auth_mode == "Login":
     if st.sidebar.button("Login"):
         user = session.query(User).filter_by(email=email_input).first()
@@ -91,20 +91,24 @@ elif auth_mode == "Login":
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
             st.session_state.user = user
+            st.session_state.page = "Dosing"  # default page after login
             st.success(f"Logged in as {email_input}")
             st.experimental_rerun()
         else:
             st.sidebar.error("Invalid credentials")
 
 # ----------------------
-# SIDEBAR NAVIGATION
+# NAVIGATION (only show if logged in)
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title("Navigation")
     st.session_state.page = st.sidebar.selectbox(
-        "Select Page", ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"]
+        "Select Page",
+        ["Dosing", "Meals", "Workout", "Bloodwork", "Photos"],
+        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos"].index(
+            st.session_state.page if st.session_state.page else "Dosing"
+        )
     )
-
 # ----------------------
 # PAGE LOGIC
 # ----------------------
