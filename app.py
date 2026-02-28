@@ -305,12 +305,6 @@ if page == "Dosing":
 if page == "Meals":
     st.header("Meal & Calorie Tracking")
 
-    # ----------------------
-    # Prepopulated meals
-    # ----------------------
-   if page == "Meals":
-    st.header("Meal & Calorie Tracker")
-
     # -----------------------
     # Prepopulated meals
     # -----------------------
