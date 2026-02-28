@@ -219,9 +219,7 @@ if page == "Dosing":
     "Proviron": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"SHBG reduction","Typical Goal":"Hardening"},
     "Methyltestosterone": {"Category":"AAS","Subclass":"Oral Testosterone","Primary Purpose":"Androgenic boost","Typical Goal":"Strength"}
 }
-        # ... add all other steroids
-    }
-
+       
     # Add Custom option
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options)
