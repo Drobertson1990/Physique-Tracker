@@ -104,6 +104,7 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
+# --- NOT LOGGED IN ---
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
@@ -129,27 +130,36 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
             st.session_state.user_email = user.email
-            st.success(f"Logged in as {st.session_state.user_email}")
+            # Set default page after login
+            st.session_state.page = "Dosing"
+            st.experimental_rerun()  # reload app after login
         else:
             st.sidebar.error("Invalid credentials")
 
+# --- LOGGED IN ---
 else:
     st.sidebar.title("Navigation")
+    pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
+
+    # Ensure default page exists
+    if "page" not in st.session_state or st.session_state.page not in pages:
+        st.session_state.page = "Dosing"
+
     st.session_state.page = st.sidebar.selectbox(
         "Select Page",
-        ["Dosing", "Meals", "Workout", "Bloodwork", "Photos", "Logout"],
-        index=["Dosing", "Meals", "Workout", "Bloodwork", "Photos", "Logout"].index(st.session_state.page)
+        pages,
+        index=pages.index(st.session_state.page)
     )
+
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
 
     if st.session_state.page == "Logout":
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.user_email = ""
-        st.session_state.page = "Meals"
+        st.session_state.page = "Dosing"  # default page after logout
         st.success("Logged out successfully")
         st.experimental_rerun()
-
 # ----------------------
 # PAGE LOGIC
 # ----------------------
