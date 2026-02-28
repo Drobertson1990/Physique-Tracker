@@ -153,7 +153,10 @@ else:
     if page == "Dashboard":
         st.header("Overview")
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
-        meals = pd.read_sql(session.query(Meal).filter_by(user_id=user_id).statement, engine)
+        meals = pd.read_sql(
+    session.query(MealLog).filter_by(user_id=st.session_state.user_id).statement,
+    engine
+)
         workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
 
         col1,col2,col3 = st.columns(3)
