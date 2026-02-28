@@ -42,7 +42,7 @@ class Dose(Base):
 class FoodItem(Base):
     __tablename__ = "food_items"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)  # optional, allows user-specific foods
+    user_id = Column(Integer)
     name = Column(String, unique=True)
     calories = Column(Float)
     protein = Column(Float)
@@ -85,20 +85,20 @@ class Photo(Base):
     path = Column(String)
     date = Column(Date)
 
-# ----------------------
-# CREATE TABLES
-# ----------------------
 Base.metadata.create_all(engine)
 
 # ----------------------
-# SESSION STATE SETUP
+# SESSION STATE INITIALIZATION
 # ----------------------
+# THIS MUST COME BEFORE ANY 'st.session_state.user' OR 'logged_in' ACCESS
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+if "user" not in st.session_state:
+    st.session_state.user = None
 # ----------------------
 # SIDEBAR NAVIGATION
 # ----------------------
