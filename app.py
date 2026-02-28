@@ -364,7 +364,7 @@ if st.session_state.logged_in:
             st.plotly_chart(fig)
         else:
             st.error("Dose table missing expected columns.")
- # ----------------------
+# ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
 if st.session_state.logged_in and st.session_state.page == "Meals":
