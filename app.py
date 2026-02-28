@@ -10,7 +10,8 @@ import plotly.express as px
 # ----------------------
 # DATABASE SETUP
 # ----------------------
-engine = create_engine("sqlite:///tracker.db")
+DB_PATH = "tracker.db"
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -38,15 +39,25 @@ class Dose(Base):
     amount = Column(Float)
     date = Column(Date)
 
-class Meal(Base):
-    __tablename__ = "meals"
+class FoodItem(Base):
+    __tablename__ = "food_items"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)  # optional, allows user-specific foods
+    name = Column(String, unique=True)
+    calories = Column(Float)
+    protein = Column(Float)
+    carbs = Column(Float)
+    fats = Column(Float)
+
+class MealLog(Base):
+    __tablename__ = "meal_logs"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer)
-    name = Column(String)
-    calories = Column(Integer)
-    protein = Column(Integer)
-    carbs = Column(Integer)
-    fats = Column(Integer)
+    meal = Column(String)
+    calories = Column(Float)
+    protein = Column(Float)
+    carbs = Column(Float)
+    fats = Column(Float)
     date = Column(Date)
 
 class Workout(Base):
@@ -74,16 +85,19 @@ class Photo(Base):
     path = Column(String)
     date = Column(Date)
 
+# ----------------------
+# CREATE TABLES
+# ----------------------
 Base.metadata.create_all(engine)
 
 # ----------------------
-# APP CONFIG
+# SESSION STATE SETUP
 # ----------------------
-st.set_page_config(layout="wide")
-st.title("💪 Physique Tracker")
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
 # ----------------------
 # SIDEBAR NAVIGATION
@@ -294,7 +308,13 @@ if page == "Meals":
     # ----------------------
     # Prepopulated meals
     # ----------------------
-    meals_dict = {
+   if page == "Meals":
+    st.header("Meal & Calorie Tracker")
+
+    # -----------------------
+    # Prepopulated meals
+    # -----------------------
+    default_meals = {
         "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
         "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
         "Oatmeal (1 cup)": {"Calories":154, "Protein":6, "Carbs":27, "Fats":3},
@@ -302,69 +322,72 @@ if page == "Meals":
         "Brown Rice (1 cup)": {"Calories":216, "Protein":5, "Carbs":45, "Fats":1.8},
         "Broccoli (100g)": {"Calories":55, "Protein":3.7, "Carbs":11, "Fats":0.6},
         "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
-        # ... you can expand with more meals
     }
 
-    meal_options = list(meals_dict.keys()) + ["Custom Meal"]
-    meal_choice = st.selectbox("Select Meal", meal_options)
+    # Fetch user-defined foods from DB
+    user_foods = pd.read_sql(session.query(FoodItem).filter_by(user_id=user_id).statement, engine)
+    user_food_dict = {row["name"]: {"Calories": row["calories"], "Protein": row["protein"], "Carbs": row["carbs"], "Fats": row["fats"]} for idx,row in user_foods.iterrows()}
 
-    if meal_choice == "Custom Meal":
-        meal_name = st.text_input("Enter Custom Meal Name")
+    all_foods = {**default_meals, **user_food_dict}
+    food_options = list(all_foods.keys()) + ["Add Custom Food"]
+    food_choice = st.selectbox("Select Food", food_options)
+
+    if food_choice == "Add Custom Food":
+        food_name = st.text_input("Food Name")
         calories = st.number_input("Calories", min_value=0)
         protein = st.number_input("Protein (g)", min_value=0)
         carbs = st.number_input("Carbs (g)", min_value=0)
         fats = st.number_input("Fats (g)", min_value=0)
     else:
-        meal_name = meal_choice
-        calories = meals_dict[meal_choice]["Calories"]
-        protein = meals_dict[meal_choice]["Protein"]
-        carbs = meals_dict[meal_choice]["Carbs"]
-        fats = meals_dict[meal_choice]["Fats"]
+        food_name = food_choice
+        calories = all_foods[food_choice]["Calories"]
+        protein = all_foods[food_choice]["Protein"]
+        carbs = all_foods[food_choice]["Carbs"]
+        fats = all_foods[food_choice]["Fats"]
 
     quantity = st.number_input("Quantity", min_value=1, value=1)
     date = st.date_input("Date", datetime.date.today())
 
     if st.button("Log Meal"):
-        if meal_name.strip() == "" or calories <= 0:
-            st.error("Please enter a valid meal and calories")
+        if food_name.strip() == "" or calories <= 0:
+            st.error("Enter a valid food and calories")
         else:
-            total_calories = calories * quantity
-            total_protein = protein * quantity
-            total_carbs = carbs * quantity
-            total_fats = fats * quantity
+            # Save custom food if not default
+            if food_choice == "Add Custom Food":
+                exists = session.query(FoodItem).filter_by(name=food_name, user_id=user_id).first()
+                if not exists:
+                    session.add(FoodItem(user_id=user_id, name=food_name, calories=calories, protein=protein, carbs=carbs, fats=fats))
+                    session.commit()
+                    st.success(f"Custom food '{food_name}' saved!")
 
-            # Assuming MealLog model exists
+            # Log the meal
             session.add(MealLog(
                 user_id=user_id,
-                meal=meal_name,
-                calories=total_calories,
-                protein=total_protein,
-                carbs=total_carbs,
-                fats=total_fats,
+                meal=food_name,
+                calories=calories*quantity,
+                protein=protein*quantity,
+                carbs=carbs*quantity,
+                fats=fats*quantity,
                 date=date
             ))
             session.commit()
-            st.success("Meal logged!")
+            st.success(f"{food_name} logged!")
 
-    # ----------------------
-    # Fetch meal logs from DB
-    # ----------------------
-    meals = pd.read_sql(
-        session.query(MealLog).filter_by(user_id=user_id).statement,
-        engine
-    )
-
+    # -----------------------
+    # Fetch meal logs
+    # -----------------------
+    meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
     if meals.empty:
         st.info("No meals logged yet.")
     else:
         meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
 
-        # Daily summary chart
+        # Daily summary
         daily_summary = meals.groupby("date")[["calories","protein","carbs","fats"]].sum().reset_index()
         st.subheader("Daily Nutrition")
         st.line_chart(daily_summary.set_index("date"))
 
-        # Weekly summary chart
+        # Weekly summary
         weekly_summary = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
         st.subheader("Weekly Nutrition")
         st.bar_chart(weekly_summary.set_index("week"))
