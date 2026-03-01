@@ -273,8 +273,8 @@ if st.session_state.logged_in and st.session_state.page == "Dashboard":
     # ----------------------
     # DOSING PAGE
     # ----------------------
-if st.session_state.logged_in:
-    if st.session_state.page == "Dosing":
+if st.session_state.logged_in and page == "Dosing":
+    st.header("Dosing Tracker Page")
         st.header("Dosing Tracker Page")
 
     # ----------------------
@@ -412,7 +412,7 @@ if st.session_state.logged_in:
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
-if st.session_state.logged_in and st.session_state.page == "Meals":
+if st.session_state.logged_in and page == "Meals":
     st.header("Meals & Calorie Tracker")
     user_id = st.session_state.user_id
 
@@ -544,8 +544,8 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
     # ----------------------
     # WORKOUTS PAGE
     # ----------------------
-    if page == "Workouts":
-        st.header("Log Workout")
+   if st.session_state.logged_in and page == "Workouts":
+    st.header("Log Workout")
         exercise = st.text_input("Exercise")
         sets = st.number_input("Sets",1)
         reps = st.number_input("Reps",1)
@@ -569,8 +569,8 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
     # ----------------------
     # BLOODWORK PAGE
     # ----------------------
-    if page == "Bloodwork":
-        st.header("Log Bloodwork")
+   if st.session_state.logged_in and page == "Bloodwork":
+    st.header("Log Bloodwork")
         test = st.text_input("Test Name")
         value = st.number_input("Value",0.0)
         date = st.date_input("Date", datetime.date.today())
@@ -588,8 +588,8 @@ if st.session_state.logged_in and st.session_state.page == "Meals":
     # ----------------------
     # PHOTOS PAGE
     # ----------------------
-    if page == "Photos":
-        st.header("Progress Photos")
+    if st.session_state.logged_in and page == "Photos":
+    st.header("Progress Photos")
         if not os.path.exists("photos"):
             os.makedirs("photos")
 
