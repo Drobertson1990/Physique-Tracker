@@ -273,12 +273,12 @@ preload_exercises = [
     {"name": "Inverted Row Feet Elevated", "equipment": "bodyweight", "muscle_group": "Back", "secondary_muscles": "Biceps"},
 ]
 
-# Insert into DB if not exists
 for ex in preload_exercises:
     if not session.query(Exercise).filter_by(name=ex["name"]).first():
         session.add(Exercise(
             name=ex["name"],
             equipment=ex["equipment"],
+            secondary_muscles=ex["secondary_muscles"],
             description="",  # optional
             image_url="",    # optional
             category=ex["muscle_group"]
@@ -291,15 +291,13 @@ session.commit()
 from sqlalchemy import inspect, text
 
 inspector = inspect(engine)
-columns = [col['name'] for col in inspector.get_columns('workouts')]
+columns = [col['name'] for col in inspector.get_columns('exercises')]
 
-with engine.begin() as conn:  # proper 2.x connection context
-    # Add 'rest_time' if missing
-    if 'rest_time' not in columns:
-        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
-    # Add 'goal' if missing
-    if 'goal' not in columns:
-        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal TEXT DEFAULT 'Hypertrophy'"))\
+with engine.begin() as conn:
+    if 'equipment' not in columns:
+        conn.execute(text("ALTER TABLE exercises ADD COLUMN equipment STRING DEFAULT ''"))
+    if 'secondary_muscles' not in columns:
+        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles STRING DEFAULT ''"))
         
 # ----------------------
 # SESSION STATE INIT
