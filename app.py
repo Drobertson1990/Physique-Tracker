@@ -398,105 +398,101 @@ if st.session_state.logged_in and page == "Dashboard":
     col3.metric("Workouts Logged", len(workouts))
 
 # ----------------------
-# DOSING PAGE - Enhanced Dashboard
+# DOSING PAGE
 # ----------------------
-if st.session_state.get("logged_in") and page == "Dosing":
-    st.set_page_config(layout="wide")
+if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing":
+    st.header("💉 Dosing Tracker")
+
     user_id = st.session_state.get("user_id")
     if not user_id:
         st.info("Please log in to view this page.")
         st.stop()
 
-    st.header("💉 Dosing Tracker")
-
     # ----------------------
     # Prepopulated compounds with detailed info
     # ----------------------
     compounds = {
-    # ------------------ PEPTIDES ------------------
-    "CJC-1295 (DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Long-acting GH stimulation", "Typical Goal":"Lean bulk / fat loss"},
-    "CJC-1295 (no DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Pulsatile GH release", "Typical Goal":"Lean mass"},
-    "Sermorelin": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Mild GH stimulation", "Typical Goal":"Anti-aging"},
-    "Tesamorelin": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Visceral fat reduction", "Typical Goal":"Fat loss"},
-    "GHRP-6": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"GH release, appetite increase", "Typical Goal":"Bulking"},
-    "GHRP-2": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Strong GH release", "Typical Goal":"Lean growth"},
-    "Ipamorelin": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Selective GH release", "Typical Goal":"Lean bulk"},
-    "Hexarelin": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Potent GH release", "Typical Goal":"Muscle gain"},
-    "MK-677 (Ibutamoren)": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"GH & IGF-1 increase", "Typical Goal":"Lean mass"},
-    "IGF-1 LR3": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Muscle cell proliferation", "Typical Goal":"Hypertrophy"},
-    "IGF-1 DES": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Local muscle growth", "Typical Goal":"Targeted growth"},
-    "MGF": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Muscle repair", "Typical Goal":"Recovery"},
-    "PEG-MGF": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Extended muscle repair", "Typical Goal":"Lean growth"},
-    "Follistatin-344": {"Category":"Peptide", "Subclass":"Myostatin Inhibitor", "Primary Purpose":"Blocks muscle growth limiter", "Typical Goal":"Extreme hypertrophy"},
-    "ACE-031": {"Category":"Peptide", "Subclass":"Myostatin Inhibitor", "Primary Purpose":"Myostatin pathway blocker", "Typical Goal":"Experimental growth"},
-    "BPC-157": {"Category":"Peptide", "Subclass":"Healing", "Primary Purpose":"Tendon & gut repair", "Typical Goal":"Injury recovery"},
-    "TB-500": {"Category":"Peptide", "Subclass":"Healing", "Primary Purpose":"Tissue regeneration", "Typical Goal":"Recovery"},
-    "GHK-Cu": {"Category":"Peptide", "Subclass":"Regenerative", "Primary Purpose":"Collagen & skin repair", "Typical Goal":"Anti-aging"},
-    "Thymosin Alpha-1": {"Category":"Peptide", "Subclass":"Immune", "Primary Purpose":"Immune modulation", "Typical Goal":"Recovery"},
-    "LL-37": {"Category":"Peptide", "Subclass":"Immune", "Primary Purpose":"Antimicrobial & healing", "Typical Goal":"Recovery"},
-    "AOD-9604": {"Category":"Peptide", "Subclass":"Fat Loss", "Primary Purpose":"Lipolysis", "Typical Goal":"Cutting"},
-    "HGH Fragment 176-191": {"Category":"Peptide", "Subclass":"Fat Loss", "Primary Purpose":"Fat metabolism", "Typical Goal":"Cutting"},
-    "MOTS-c": {"Category":"Peptide", "Subclass":"Metabolic", "Primary Purpose":"Mitochondrial optimization", "Typical Goal":"Fat loss"},
-    "5-Amino-1MQ": {"Category":"Peptide", "Subclass":"Research Peptide", "Primary Purpose":"NNMT inhibition", "Typical Goal":"Fat loss"},
-    "Semaglutide": {"Category":"Peptide", "Subclass":"GLP-1 Agonist", "Primary Purpose":"Appetite suppression", "Typical Goal":"Weight loss"},
-    "Tirzepatide": {"Category":"Peptide", "Subclass":"GLP-1/GIP Agonist", "Primary Purpose":"Appetite + glucose control", "Typical Goal":"Weight loss"},
-    "Retatrutide": {"Category":"Peptide", "Subclass":"GLP-1/GIP/Glucagon Agonist", "Primary Purpose":"Triple agonist; major fat loss", "Typical Goal":"Weight reduction"},
-    "Liraglutide": {"Category":"Peptide", "Subclass":"GLP-1 Agonist", "Primary Purpose":"Appetite suppression", "Typical Goal":"Weight loss"},
-    "Insulin": {"Category":"Peptide Hormone", "Subclass":"Anabolic Hormone", "Primary Purpose":"Nutrient partitioning", "Typical Goal":"Mass gain"},
-    "Pramlintide": {"Category":"Peptide", "Subclass":"Amylin Analog", "Primary Purpose":"Appetite control", "Typical Goal":"Fat loss"},
-    "EPO (Erythropoietin)": {"Category":"Peptide Hormone", "Subclass":"Erythropoietic", "Primary Purpose":"RBC production", "Typical Goal":"Endurance"},
-    "PT-141 (Bremelanotide)": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Libido enhancement", "Typical Goal":"Sexual health"},
-    "Melanotan I": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Skin tanning", "Typical Goal":"Cosmetic"},
-    "Melanotan II": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Tanning + libido", "Typical Goal":"Cosmetic"},
-    "Selank": {"Category":"Peptide", "Subclass":"Nootropic", "Primary Purpose":"Anxiety reduction", "Typical Goal":"Cognitive"},
-    "Semax": {"Category":"Peptide", "Subclass":"Nootropic", "Primary Purpose":"Cognitive enhancement", "Typical Goal":"Focus"},
-    "Dihexa": {"Category":"Peptide", "Subclass":"Neurogenic", "Primary Purpose":"Neuroplasticity", "Typical Goal":"Cognitive"},
-    "Epitalon": {"Category":"Peptide", "Subclass":"Longevity", "Primary Purpose":"Telomere research", "Typical Goal":"Anti-aging"},
-    "SS-31 (Elamipretide)": {"Category":"Peptide", "Subclass":"Mitochondrial", "Primary Purpose":"Cellular energy support", "Typical Goal":"Longevity"},
-    "Humanin": {"Category":"Peptide", "Subclass":"Mitochondrial", "Primary Purpose":"Cytoprotective", "Typical Goal":"Anti-aging"},
-
-    # ------------------ STEROIDS ------------------
-    "Testosterone Enanthate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Mass & strength","Typical Goal":"Bulking"},
-    "Testosterone Cypionate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Mass & strength","Typical Goal":"Bulking"},
-    "Testosterone Propionate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Lean mass","Typical Goal":"Cutting"},
-    "Sustanon 250": {"Category":"AAS","Subclass":"Testosterone Blend","Primary Purpose":"General anabolic base","Typical Goal":"Any phase"},
-    "Dianabol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Rapid size gain","Typical Goal":"Bulking"},
-    "Anadrol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Extreme mass","Typical Goal":"Bulking"},
-    "Deca-Durabolin": {"Category":"AAS","Subclass":"Nandrolone","Primary Purpose":"Size + joint support","Typical Goal":"Bulking"},
-    "Trenbolone": {"Category":"AAS","Subclass":"19-nor","Primary Purpose":"Mass + fat loss","Typical Goal":"Recomp"},
-    "Superdrol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Rapid hypertrophy","Typical Goal":"Bulking"},
-    "Equipoise": {"Category":"AAS","Subclass":"Boldenone","Primary Purpose":"Lean mass","Typical Goal":"Lean bulk"},
-    "Winstrol": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Hardening","Typical Goal":"Cutting"},
-    "Anavar": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Lean retention","Typical Goal":"Cutting"},
-    "Primobolan": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Lean muscle","Typical Goal":"Cutting"},
-    "Masteron": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Hardening effect","Typical Goal":"Contest prep"},
-    "Turinabol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Lean strength","Typical Goal":"Recomp"},
-    "Halotestin": {"Category":"AAS","Subclass":"Oral Androgen","Primary Purpose":"Strength & aggression","Typical Goal":"Strength peak"},
-    "Proviron": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"SHBG reduction","Typical Goal":"Hardening"},
-    "Methyltestosterone": {"Category":"AAS","Subclass":"Oral Testosterone","Primary Purpose":"Androgenic boost","Typical Goal":"Strength"}
-}
-       
-    # ----------------------
-    # Prepopulated compounds
-    # ----------------------
-    compounds = {
-        # Keep all compounds from your original code here...
+        # ------------------ PEPTIDES ------------------
+        "CJC-1295 (DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Long-acting GH stimulation", "Typical Goal":"Lean bulk / fat loss"},
+        "CJC-1295 (no DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Pulsatile GH release", "Typical Goal":"Lean mass"},
+        "Sermorelin": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Mild GH stimulation", "Typical Goal":"Anti-aging"},
+        "Tesamorelin": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Visceral fat reduction", "Typical Goal":"Fat loss"},
+        "GHRP-6": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"GH release, appetite increase", "Typical Goal":"Bulking"},
+        "GHRP-2": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Strong GH release", "Typical Goal":"Lean growth"},
+        "Ipamorelin": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Selective GH release", "Typical Goal":"Lean bulk"},
+        "Hexarelin": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"Potent GH release", "Typical Goal":"Muscle gain"},
+        "MK-677 (Ibutamoren)": {"Category":"Peptide", "Subclass":"GH Secretagogue", "Primary Purpose":"GH & IGF-1 increase", "Typical Goal":"Lean mass"},
+        "IGF-1 LR3": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Muscle cell proliferation", "Typical Goal":"Hypertrophy"},
+        "IGF-1 DES": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Local muscle growth", "Typical Goal":"Targeted growth"},
+        "MGF": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Muscle repair", "Typical Goal":"Recovery"},
+        "PEG-MGF": {"Category":"Peptide", "Subclass":"Growth Factor", "Primary Purpose":"Extended muscle repair", "Typical Goal":"Lean growth"},
+        "Follistatin-344": {"Category":"Peptide", "Subclass":"Myostatin Inhibitor", "Primary Purpose":"Blocks muscle growth limiter", "Typical Goal":"Extreme hypertrophy"},
+        "ACE-031": {"Category":"Peptide", "Subclass":"Myostatin Inhibitor", "Primary Purpose":"Myostatin pathway blocker", "Typical Goal":"Experimental growth"},
+        "BPC-157": {"Category":"Peptide", "Subclass":"Healing", "Primary Purpose":"Tendon & gut repair", "Typical Goal":"Injury recovery"},
+        "TB-500": {"Category":"Peptide", "Subclass":"Healing", "Primary Purpose":"Tissue regeneration", "Typical Goal":"Recovery"},
+        "GHK-Cu": {"Category":"Peptide", "Subclass":"Regenerative", "Primary Purpose":"Collagen & skin repair", "Typical Goal":"Anti-aging"},
+        "Thymosin Alpha-1": {"Category":"Peptide", "Subclass":"Immune", "Primary Purpose":"Immune modulation", "Typical Goal":"Recovery"},
+        "LL-37": {"Category":"Peptide", "Subclass":"Immune", "Primary Purpose":"Antimicrobial & healing", "Typical Goal":"Recovery"},
+        "AOD-9604": {"Category":"Peptide", "Subclass":"Fat Loss", "Primary Purpose":"Lipolysis", "Typical Goal":"Cutting"},
+        "HGH Fragment 176-191": {"Category":"Peptide", "Subclass":"Fat Loss", "Primary Purpose":"Fat metabolism", "Typical Goal":"Cutting"},
+        "MOTS-c": {"Category":"Peptide", "Subclass":"Metabolic", "Primary Purpose":"Mitochondrial optimization", "Typical Goal":"Fat loss"},
+        "5-Amino-1MQ": {"Category":"Peptide", "Subclass":"Research Peptide", "Primary Purpose":"NNMT inhibition", "Typical Goal":"Fat loss"},
+        "Semaglutide": {"Category":"Peptide", "Subclass":"GLP-1 Agonist", "Primary Purpose":"Appetite suppression", "Typical Goal":"Weight loss"},
+        "Tirzepatide": {"Category":"Peptide", "Subclass":"GLP-1/GIP Agonist", "Primary Purpose":"Appetite + glucose control", "Typical Goal":"Weight loss"},
+        "Retatrutide": {"Category":"Peptide", "Subclass":"GLP-1/GIP/Glucagon Agonist", "Primary Purpose":"Triple agonist; major fat loss", "Typical Goal":"Weight reduction"},
+        "Liraglutide": {"Category":"Peptide", "Subclass":"GLP-1 Agonist", "Primary Purpose":"Appetite suppression", "Typical Goal":"Weight loss"},
+        "Insulin": {"Category":"Peptide Hormone", "Subclass":"Anabolic Hormone", "Primary Purpose":"Nutrient partitioning", "Typical Goal":"Mass gain"},
+        "Pramlintide": {"Category":"Peptide", "Subclass":"Amylin Analog", "Primary Purpose":"Appetite control", "Typical Goal":"Fat loss"},
+        "EPO (Erythropoietin)": {"Category":"Peptide Hormone", "Subclass":"Erythropoietic", "Primary Purpose":"RBC production", "Typical Goal":"Endurance"},
+        "PT-141 (Bremelanotide)": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Libido enhancement", "Typical Goal":"Sexual health"},
+        "Melanotan I": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Skin tanning", "Typical Goal":"Cosmetic"},
+        "Melanotan II": {"Category":"Peptide", "Subclass":"Melanocortin", "Primary Purpose":"Tanning + libido", "Typical Goal":"Cosmetic"},
+        "Selank": {"Category":"Peptide", "Subclass":"Nootropic", "Primary Purpose":"Anxiety reduction", "Typical Goal":"Cognitive"},
+        "Semax": {"Category":"Peptide", "Subclass":"Nootropic", "Primary Purpose":"Cognitive enhancement", "Typical Goal":"Focus"},
+        "Dihexa": {"Category":"Peptide", "Subclass":"Neurogenic", "Primary Purpose":"Neuroplasticity", "Typical Goal":"Cognitive"},
+        "Epitalon": {"Category":"Peptide", "Subclass":"Longevity", "Primary Purpose":"Telomere research", "Typical Goal":"Anti-aging"},
+        "SS-31 (Elamipretide)": {"Category":"Peptide", "Subclass":"Mitochondrial", "Primary Purpose":"Cellular energy support", "Typical Goal":"Longevity"},
+        "Humanin": {"Category":"Peptide", "Subclass":"Mitochondrial", "Primary Purpose":"Cytoprotective", "Typical Goal":"Anti-aging"},
+        # ------------------ STEROIDS ------------------
+        "Testosterone Enanthate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Mass & strength","Typical Goal":"Bulking"},
+        "Testosterone Cypionate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Mass & strength","Typical Goal":"Bulking"},
+        "Testosterone Propionate": {"Category":"AAS","Subclass":"Testosterone","Primary Purpose":"Lean mass","Typical Goal":"Cutting"},
+        "Sustanon 250": {"Category":"AAS","Subclass":"Testosterone Blend","Primary Purpose":"General anabolic base","Typical Goal":"Any phase"},
+        "Dianabol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Rapid size gain","Typical Goal":"Bulking"},
+        "Anadrol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Extreme mass","Typical Goal":"Bulking"},
+        "Deca-Durabolin": {"Category":"AAS","Subclass":"Nandrolone","Primary Purpose":"Size + joint support","Typical Goal":"Bulking"},
+        "Trenbolone": {"Category":"AAS","Subclass":"19-nor","Primary Purpose":"Mass + fat loss","Typical Goal":"Recomp"},
+        "Superdrol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Rapid hypertrophy","Typical Goal":"Bulking"},
+        "Equipoise": {"Category":"AAS","Subclass":"Boldenone","Primary Purpose":"Lean mass","Typical Goal":"Lean bulk"},
+        "Winstrol": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Hardening","Typical Goal":"Cutting"},
+        "Anavar": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Lean retention","Typical Goal":"Cutting"},
+        "Primobolan": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Lean muscle","Typical Goal":"Cutting"},
+        "Masteron": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"Hardening effect","Typical Goal":"Contest prep"},
+        "Turinabol": {"Category":"AAS","Subclass":"Oral Anabolic","Primary Purpose":"Lean strength","Typical Goal":"Recomp"},
+        "Halotestin": {"Category":"AAS","Subclass":"Oral Androgen","Primary Purpose":"Strength & aggression","Typical Goal":"Strength peak"},
+        "Proviron": {"Category":"AAS","Subclass":"DHT Derivative","Primary Purpose":"SHBG reduction","Typical Goal":"Hardening"},
+        "Methyltestosterone": {"Category":"AAS","Subclass":"Oral Testosterone","Primary Purpose":"Androgenic boost","Typical Goal":"Strength"}
     }
 
     # ----------------------
-    # Dose Input
+    # Compound Selection
     # ----------------------
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
+
+    # Dose Inputs
     amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
     date = st.date_input("Date", datetime.date.today(), key="dose_date")
 
+    # ----------------------
+    # Handle Custom Compound
+    # ----------------------
     if compound_choice == "Custom":
-        compound_name = st.text_input("Enter Custom Compound Name")
-        category = st.text_input("Category")
-        subclass = st.text_input("Subclass")
-        primary_purpose = st.text_input("Primary Purpose")
-        typical_goal = st.text_input("Typical Goal")
+        compound_name = st.text_input("Enter Custom Compound Name", key="custom_name")
+        category = st.text_input("Category", key="custom_category")
+        subclass = st.text_input("Subclass", key="custom_subclass")
+        primary_purpose = st.text_input("Primary Purpose", key="custom_primary")
+        typical_goal = st.text_input("Typical Goal", key="custom_goal")
         compound_info = {
             "Category": category,
             "Subclass": subclass,
@@ -507,12 +503,18 @@ if st.session_state.get("logged_in") and page == "Dosing":
         compound_name = compound_choice
         compound_info = compounds[compound_choice]
 
+    # ----------------------
+    # Display Compound Info
+    # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
     st.write(f"**Subclass:** {compound_info['Subclass']}")
     st.write(f"**Primary Purpose:** {compound_info['Primary Purpose']}")
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
+    # ----------------------
+    # Save Dose
+    # ----------------------
     if st.button("Save Dose", key="save_dose_btn"):
         if compound_name.strip() == "" or amount <= 0:
             st.error("Please enter a valid compound and amount")
@@ -521,105 +523,57 @@ if st.session_state.get("logged_in") and page == "Dosing":
             session.commit()
             st.success("Dose saved!")
 
-    st.markdown("---")
-
     # ----------------------
-    # Fetch doses for charts
+    # Fetch Doses
     # ----------------------
-    doses_df = pd.read_sql(
+    doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if doses_df.empty:
+    if doses.empty:
         st.info("No doses logged yet.")
-        st.stop()
-
-    doses_df["date"] = pd.to_datetime(doses_df["date"])
-    doses_df["week"] = doses_df["date"].dt.isocalendar().week
-
-    # ----------------------
-    # 1️⃣ Weekly Compound Summary Cards (Fancy)
-    # ----------------------
-    st.subheader("📅 Weekly Compound Summary")
-    latest_week = doses_df["week"].max()
-    weekly_summary = doses_df[doses_df["week"] == latest_week].groupby("compound")["amount"].sum().reset_index()
-    compounds_list = weekly_summary["compound"].tolist()
-
-    # Create colorful cards using st.columns and HTML
-    num_cols = min(len(compounds_list), 4)
-    cols = st.columns(num_cols)
-
-    card_colors = ["#ff6f61","#6fa8dc","#ffd966","#93c47d"]  # alternate colors
-
-    for idx, compound in enumerate(compounds_list):
-        total = weekly_summary[weekly_summary["compound"] == compound]["amount"].sum()
-        with cols[idx % num_cols]:
-            st.markdown(f"""
-                <div style='
-                    background-color:{card_colors[idx % len(card_colors)]};
-                    padding:20px;
-                    border-radius:15px;
-                    text-align:center;
-                    color:white;
-                    font-weight:bold;
-                    box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-                '>
-                    <div style='font-size:18px;'>Week {latest_week}</div>
-                    <div style='font-size:22px; margin-top:5px;'>{compound}</div>
-                    <div style='font-size:28px; margin-top:10px;'>{total} mg</div>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # ----------------------
-    # 2️⃣ Active Cycle Tracker
-    # ----------------------
-    st.markdown("---")
-    st.subheader("⚡ Active Cycles")
-    today = pd.Timestamp.today().normalize()
-    active_cycles_df = doses_df[(doses_df["start_date"] <= today) & (doses_df["end_date"] >= today)] if "start_date" in doses_df.columns and "end_date" in doses_df.columns else pd.DataFrame()
-
-    if active_cycles_df.empty:
-        st.info("No active cycles at the moment.")
     else:
-        for idx, row in active_cycles_df.drop_duplicates("cycle_name").iterrows():
-            st.markdown(f"**{row['cycle_name']}**")
-            st.write(f"Start: {row['start_date'].date()} | End: {row['end_date'].date()}")
-            compounds_in_cycle = doses_df[doses_df['cycle_name'] == row['cycle_name']]['compound'].unique()
-            st.write(f"Compounds: {', '.join(compounds_in_cycle)}")
+        doses["date"] = pd.to_datetime(doses["date"])
+        doses["week"] = doses["date"].dt.isocalendar().week
 
-    # ----------------------
-    # 3️⃣ Visual Stack Timeline
-    # ----------------------
-    st.markdown("---")
-    st.subheader("📊 Stack Timeline")
-    timeline_df = doses_df[["date","compound","amount"]].sort_values("date")
-    fig_timeline = px.line(
-        timeline_df,
-        x="date",
-        y="amount",
-        color="compound",
-        markers=True,
-        title="Compound Stack Over Time"
-    )
-    st.plotly_chart(fig_timeline, use_container_width=True)
+        # ----------------------
+        # Weekly Compound Summary Cards
+        # ----------------------
+        st.subheader("📋 Weekly Compound Summary")
+        weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
+        weeks = weekly_summary["week"].unique()
+        for w in weeks:
+            week_data = weekly_summary[weekly_summary["week"] == w]
+            cols = st.columns(len(week_data))
+            for i, row in week_data.iterrows():
+                cols[i % len(cols)].metric(label=row["compound"], value=f"{row['amount']} mg", delta=None)
 
-    # ----------------------
-    # Weekly Dose Totals Graph
-    # ----------------------
-    st.markdown("---")
-    st.subheader("📈 Weekly Dose Totals")
-    graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
-    summary = doses_df.groupby(["week","compound"])["amount"].sum().reset_index()
+        # ----------------------
+        # Visual Stack Timeline
+        # ----------------------
+        st.subheader("📊 Compound Stack Timeline")
+        fig_timeline = px.timeline(
+            doses.sort_values("date"),
+            x_start="date",
+            x_end="date",
+            y="compound",
+            color="compound",
+            title="Dose Timeline"
+        )
+        fig_timeline.update_yaxes(autorange="reversed")  # Highest on top
+        st.plotly_chart(fig_timeline, use_container_width=True)
 
-    if graph_type == "Bar":
-        fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-    elif graph_type == "Line":
-        fig = px.line(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-    else:
-        fig = px.area(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-
-    st.plotly_chart(fig, use_container_width=True)
+        # ----------------------
+        # Active Cycle Tracker
+        # ----------------------
+        st.subheader("🟢 Active Cycles")
+        active_compounds = doses[doses["date"] >= (datetime.date.today() - pd.Timedelta(days=7))]
+        if active_compounds.empty:
+            st.info("No active compounds in the past 7 days")
+        else:
+            for c in active_compounds["compound"].unique():
+                st.success(f"{c} active in last 7 days")
     
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
