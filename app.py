@@ -133,15 +133,17 @@ class RoutineExercise(Base):
 # ----------------------
 Base.metadata.create_all(engine)
 
+# ----------------------
+# Ensure rest_time and goal columns exist (SQLite-safe)
+# ----------------------
 inspector = inspect(engine)
 columns = [col['name'] for col in inspector.get_columns('workouts')]
 
-with engine.begin() as conn:  # proper 2.x connection context
+with engine.begin() as conn:
     if 'rest_time' not in columns:
         conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
     if 'goal' not in columns:
-        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal STRING DEFAULT 'Hypertrophy'"))
-
+        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal TEXT DEFAULT 'Hypertrophy'"))
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
