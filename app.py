@@ -134,6 +134,144 @@ class RoutineExercise(Base):
 Base.metadata.create_all(engine)
 
 # ----------------------
+# PRELOAD EXERCISES
+# ----------------------
+preload_exercises = [
+    # CHEST
+    {"name": "Barbell Bench Press", "equipment": "barbell & bench", "muscle_group": "Chest", "secondary_muscles": "Triceps, Anterior Deltoids"},
+    {"name": "Dumbbell Bench Press", "equipment": "dumbbells & bench", "muscle_group": "Chest", "secondary_muscles": "Triceps, Shoulders"},
+    {"name": "Incline Barbell Bench Press", "equipment": "barbell & incline bench", "muscle_group": "Upper Chest", "secondary_muscles": "Shoulders, Triceps"},
+    {"name": "Incline Dumbbell Press", "equipment": "dumbbells & incline bench", "muscle_group": "Upper Chest", "secondary_muscles": "Triceps"},
+    {"name": "Decline Barbell Press", "equipment": "barbell & decline bench", "muscle_group": "Lower Chest", "secondary_muscles": "Triceps"},
+    {"name": "Decline Dumbbell Press", "equipment": "dumbbells & decline bench", "muscle_group": "Lower Chest", "secondary_muscles": "Triceps"},
+    {"name": "Smith Machine Bench Press", "equipment": "smith machine & bench", "muscle_group": "Chest", "secondary_muscles": "Triceps"},
+    {"name": "Machine Chest Press", "equipment": "chest press machine", "muscle_group": "Chest", "secondary_muscles": "Triceps"},
+    {"name": "Pec Deck Fly", "equipment": "pec deck machine", "muscle_group": "Chest", "secondary_muscles": "Anterior Deltoids"},
+    {"name": "Cable Chest Fly", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Anterior Deltoids"},
+    {"name": "Standing Cable Crossover", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Shoulders"},
+    {"name": "Push-Ups", "equipment": "bodyweight", "muscle_group": "Chest", "secondary_muscles": "Triceps, Shoulders"},
+    {"name": "Incline Push-Ups", "equipment": "bodyweight (elevated)", "muscle_group": "Upper Chest", "secondary_muscles": "Shoulders"},
+    {"name": "Decline Push-Ups", "equipment": "bodyweight (feet elevated)", "muscle_group": "Lower Chest", "secondary_muscles": "Shoulders"},
+
+    # BACK
+    {"name": "Pull-Ups", "equipment": "pull-up bar", "muscle_group": "Lats", "secondary_muscles": "Biceps, Rear Delts"},
+    {"name": "Chin-Ups", "equipment": "pull-up bar", "muscle_group": "Lats/Biceps", "secondary_muscles": "Chest"},
+    {"name": "Lat Pulldown (Wide Grip)", "equipment": "cable machine", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Lat Pulldown (Close Grip)", "equipment": "cable machine", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Seated Cable Row", "equipment": "cable machine", "muscle_group": "Mid Back", "secondary_muscles": "Biceps"},
+    {"name": "Bent-Over Barbell Row", "equipment": "barbell", "muscle_group": "Upper Back", "secondary_muscles": "Lats, Biceps"},
+    {"name": "Dumbbell One-Arm Row", "equipment": "dumbbell", "muscle_group": "Upper Back", "secondary_muscles": "Lats, Biceps"},
+    {"name": "T-Bar Row", "equipment": "barbell/T-bar", "muscle_group": "Upper Back", "secondary_muscles": "Lats, Biceps"},
+    {"name": "Machine Row", "equipment": "row machine", "muscle_group": "Back", "secondary_muscles": "Biceps"},
+    {"name": "Straight-Arm Cable Pulldown", "equipment": "cable machine", "muscle_group": "Lats", "secondary_muscles": ""},
+    {"name": "Reverse Grip Pulldown", "equipment": "cable machine", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Inverted Row", "equipment": "bodyweight / bar", "muscle_group": "Back", "secondary_muscles": "Biceps"},
+    {"name": "Deadlift", "equipment": "barbell", "muscle_group": "Posterior Chain", "secondary_muscles": "Back, Glutes"},
+
+    # LEGS & GLUTES
+    {"name": "Barbell Back Squat", "equipment": "barbell", "muscle_group": "Quads", "secondary_muscles": "Glutes, Hamstrings"},
+    {"name": "Front Squat", "equipment": "barbell", "muscle_group": "Quads", "secondary_muscles": "Core"},
+    {"name": "Goblet Squat", "equipment": "dumbbell/kettlebell", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Sumo Squat", "equipment": "barbell", "muscle_group": "Glutes", "secondary_muscles": "Inner Thighs"},
+    {"name": "Hack Squat Machine", "equipment": "hack squat machine", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Leg Press", "equipment": "leg press machine", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Bulgarian Split Squat", "equipment": "dumbbells", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Lunge (Forward)", "equipment": "bodyweight/dumbbells", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Reverse Lunge", "equipment": "bodyweight/dumbbells", "muscle_group": "Glutes", "secondary_muscles": "Quads"},
+    {"name": "Walking Lunge", "equipment": "dumbbells", "muscle_group": "Glutes", "secondary_muscles": "Quads"},
+    {"name": "Romanian Deadlift", "equipment": "barbell", "muscle_group": "Hamstrings", "secondary_muscles": "Glutes"},
+    {"name": "Stiff-Leg Deadlift", "equipment": "barbell", "muscle_group": "Hamstrings", "secondary_muscles": "Lower Back"},
+    {"name": "Leg Extension", "equipment": "leg extension machine", "muscle_group": "Quads", "secondary_muscles": ""},
+    {"name": "Leg Curl (Lying)", "equipment": "leg curl machine", "muscle_group": "Hamstrings", "secondary_muscles": ""},
+    {"name": "Leg Curl (Seated)", "equipment": "leg curl machine", "muscle_group": "Hamstrings", "secondary_muscles": ""},
+    {"name": "Calf Raise (Standing)", "equipment": "machine/bodyweight", "muscle_group": "Calves", "secondary_muscles": ""},
+    {"name": "Calf Raise (Seated)", "equipment": "seated calf machine", "muscle_group": "Calves", "secondary_muscles": ""},
+    {"name": "Hip Thrust", "equipment": "barbell/bench", "muscle_group": "Glutes", "secondary_muscles": "Hamstrings"},
+    {"name": "Glute Bridge", "equipment": "bodyweight/barbell", "muscle_group": "Glutes", "secondary_muscles": "Hamstrings"},
+    {"name": "Cable Pull-Through", "equipment": "cable machine", "muscle_group": "Glutes", "secondary_muscles": "Hamstrings"},
+
+    # SHOULDERS
+    {"name": "Overhead Barbell Press", "equipment": "barbell", "muscle_group": "Shoulders", "secondary_muscles": "Triceps"},
+    {"name": "Dumbbell Shoulder Press", "equipment": "dumbbells", "muscle_group": "Shoulders", "secondary_muscles": "Triceps"},
+    {"name": "Seated Machine Shoulder Press", "equipment": "machine", "muscle_group": "Shoulders", "secondary_muscles": "Triceps"},
+    {"name": "Arnold Press", "equipment": "dumbbells", "muscle_group": "Shoulders", "secondary_muscles": "Upper Chest"},
+    {"name": "Lateral Raise", "equipment": "dumbbells", "muscle_group": "Medial Delts", "secondary_muscles": ""},
+    {"name": "Front Raise", "equipment": "dumbbells", "muscle_group": "Anterior Delts", "secondary_muscles": ""},
+    {"name": "Reverse Fly", "equipment": "dumbbells/cable", "muscle_group": "Posterior Delts", "secondary_muscles": "Upper Back"},
+    {"name": "Upright Row", "equipment": "barbell", "muscle_group": "Traps/Shoulders", "secondary_muscles": "Biceps"},
+    {"name": "Cable Lateral Raise", "equipment": "cable machine", "muscle_group": "Medial Delts", "secondary_muscles": ""},
+
+    # ARMS
+    # Biceps
+    {"name": "Barbell Biceps Curl", "equipment": "barbell/EZ bar", "muscle_group": "Biceps", "secondary_muscles": "Forearms"},
+    {"name": "Dumbbell Biceps Curl", "equipment": "dumbbells", "muscle_group": "Biceps", "secondary_muscles": "Forearms"},
+    {"name": "Hammer Curl", "equipment": "dumbbells", "muscle_group": "Brachialis", "secondary_muscles": "Forearms"},
+    {"name": "Concentration Curl", "equipment": "dumbbell", "muscle_group": "Biceps", "secondary_muscles": ""},
+    {"name": "Preacher Curl", "equipment": "preacher bench & bar/dumbbells", "muscle_group": "Biceps", "secondary_muscles": ""},
+    {"name": "Cable Biceps Curl", "equipment": "cable machine", "muscle_group": "Biceps", "secondary_muscles": ""},
+    {"name": "Incline Dumbbell Curl", "equipment": "incline bench & dumbbells", "muscle_group": "Biceps", "secondary_muscles": ""},
+    {"name": "Reverse Barbell Curl", "equipment": "barbell", "muscle_group": "Forearms", "secondary_muscles": "Biceps"},
+    # Triceps
+    {"name": "Triceps Pushdown", "equipment": "cable machine", "muscle_group": "Triceps", "secondary_muscles": ""},
+    {"name": "Overhead Dumbbell Triceps Extension", "equipment": "dumbbell", "muscle_group": "Triceps", "secondary_muscles": "Shoulders"},
+    {"name": "Skull Crushers", "equipment": "EZ bar", "muscle_group": "Triceps", "secondary_muscles": "Forearms"},
+    {"name": "Close-Grip Bench Press", "equipment": "barbell", "muscle_group": "Triceps", "secondary_muscles": "Chest"},
+    {"name": "Dips", "equipment": "parallel bars", "muscle_group": "Triceps", "secondary_muscles": "Chest"},
+    {"name": "Machine Triceps Extension", "equipment": "machine", "muscle_group": "Triceps", "secondary_muscles": ""},
+    {"name": "Rope Triceps Pushdown", "equipment": "cable machine", "muscle_group": "Triceps", "secondary_muscles": ""},
+
+    # CORE / ABS
+    {"name": "Crunches", "equipment": "bodyweight", "muscle_group": "Abs", "secondary_muscles": "Hip Flexors"},
+    {"name": "Cable Crunch", "equipment": "cable machine", "muscle_group": "Abs", "secondary_muscles": ""},
+    {"name": "Hanging Leg Raise", "equipment": "bodyweight", "muscle_group": "Abs", "secondary_muscles": "Hip Flexors"},
+    {"name": "Decline Sit-Up", "equipment": "decline bench", "muscle_group": "Abs", "secondary_muscles": "Hip Flexors"},
+    {"name": "Plank", "equipment": "bodyweight", "muscle_group": "Core", "secondary_muscles": "Stabilizers"},
+    {"name": "Side Plank", "equipment": "bodyweight", "muscle_group": "Obliques", "secondary_muscles": "Core"},
+    {"name": "Russian Twist", "equipment": "medicine ball", "muscle_group": "Obliques", "secondary_muscles": "Abs"},
+    {"name": "Ab Wheel Rollout", "equipment": "ab wheel", "muscle_group": "Core", "secondary_muscles": "Shoulders"},
+    {"name": "Mountain Climbers", "equipment": "bodyweight", "muscle_group": "Core", "secondary_muscles": "Cardio"},
+    {"name": "Standing Cable Wood Chop", "equipment": "cable machine", "muscle_group": "Obliques", "secondary_muscles": "Core"},
+
+    # FULL BODY / FUNCTIONAL
+    {"name": "Barbell Deadlift", "equipment": "barbell", "muscle_group": "Posterior Chain", "secondary_muscles": "Full Body"},
+    {"name": "Sumo Deadlift", "equipment": "barbell", "muscle_group": "Glutes", "secondary_muscles": "Quads/Back"},
+    {"name": "Power Clean", "equipment": "barbell", "muscle_group": "Full Body", "secondary_muscles": "Shoulders/Legs"},
+    {"name": "Clean & Jerk", "equipment": "barbell", "muscle_group": "Full Body", "secondary_muscles": "Shoulders/Legs"},
+    {"name": "Snatch", "equipment": "barbell", "muscle_group": "Full Body", "secondary_muscles": "Back/Shoulders"},
+    {"name": "Kettlebell Swing", "equipment": "kettlebell", "muscle_group": "Posterior Chain", "secondary_muscles": "Core"},
+    {"name": "Thruster", "equipment": "barbell/dumbbells", "muscle_group": "Legs/Shoulders", "secondary_muscles": "Core"},
+    {"name": "Farmer’s Carry", "equipment": "dumbbells/kettlebells", "muscle_group": "Full Body", "secondary_muscles": "Grip/Core"},
+    {"name": "Battle Ropes", "equipment": "battle ropes", "muscle_group": "Full Body", "secondary_muscles": "Arms/Core"},
+    {"name": "Box Jump", "equipment": "plyo box", "muscle_group": "Legs", "secondary_muscles": "Explosive Power"},
+    {"name": "Burpees", "equipment": "bodyweight", "muscle_group": "Full Body", "secondary_muscles": "Cardio"},
+
+    # CABLE / MACHINE ISOLATION
+    {"name": "Cable Chest Fly High", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Shoulders"},
+    {"name": "Cable Chest Fly Low", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Shoulders"},
+    {"name": "Cable Row High", "equipment": "cable machine", "muscle_group": "Upper Back", "secondary_muscles": "Biceps"},
+    {"name": "Cable Row Low", "equipment": "cable machine", "muscle_group": "Mid Back", "secondary_muscles": "Biceps"},
+    {"name": "Single-Arm Cable Row", "equipment": "cable machine", "muscle_group": "Back", "secondary_muscles": "Biceps"},
+    {"name": "Machine Lat Pulldown", "equipment": "machine", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Machine Assisted Pull-Up", "equipment": "machine", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Smith Machine Squat", "equipment": "smith machine", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Smith Machine Lunges", "equipment": "smith machine", "muscle_group": "Legs", "secondary_muscles": "Glutes"},
+    {"name": "Leg Press Single Leg", "equipment": "leg press machine", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
+    {"name": "Hip Abduction Machine", "equipment": "machine", "muscle_group": "Abductors", "secondary_muscles": "Glutes"},
+    {"name": "Hip Adduction Machine", "equipment": "machine", "muscle_group": "Adductors", "secondary_muscles": "Inner Thighs"},
+    {"name": "Seated Calf Machine", "equipment": "machine", "muscle_group": "Calves", "secondary
+
+     for ex in preload_exercises:
+    if not session.query(Exercise).filter_by(name=ex["name"]).first():
+        session.add(Exercise(
+            name=ex["name"],
+            description="",
+            muscle_group=ex["muscle_group"],
+            equipment=ex["equipment"],
+            secondary_muscles=ex["secondary_muscles"]
+        ))
+session.commit()
+
+# ----------------------
 # ENSURE WORKOUTS TABLE COLUMNS EXIST
 # ----------------------
 from sqlalchemy import inspect, text
