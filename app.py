@@ -511,13 +511,21 @@ if st.session_state.logged_in and page == "Meals":
 # ----------------------
 # WORKOUT PAGE
 # ----------------------
-if st.session_state.get("logged_in") and page == "Workouts":
+if st.session_state.get("logged_in") and st.session_state.get("page") == "Workouts":
+
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        st.info("Please log in to view this page.")
+        st.stop()
+
     st.header("Log Workout")
 
     # Exercise selection
     exercise_library = [ex.name for ex in session.query(Exercise).all()]
+    if not exercise_library:
+        exercise_library = ["No exercises available"]
     exercise = st.selectbox("Exercise", exercise_library)
-    
+
     sets = st.number_input("Sets", 1, min_value=1)
     reps = st.number_input("Reps", 1, min_value=1)
     weight = st.number_input("Weight", 0.0, min_value=0.0)
@@ -527,7 +535,7 @@ if st.session_state.get("logged_in") and page == "Workouts":
 
     if st.button("Save Workout"):
         session.add(Workout(
-            user_id=st.session_state.user_id,
+            user_id=user_id,
             exercise=exercise,
             sets=sets,
             reps=reps,
@@ -542,10 +550,14 @@ if st.session_state.get("logged_in") and page == "Workouts":
     # ----------------------
     # Display workout summary
     # ----------------------
-    workouts_df = pd.read_sql(
-        session.query(Workout).filter_by(user_id=st.session_state.user_id).statement,
-        engine
-    )
+    try:
+        workouts_df = pd.read_sql(
+            session.query(Workout).filter_by(user_id=user_id).statement,
+            engine
+        )
+    except Exception:
+        st.error("Unable to load workouts. Ensure the database is initialized correctly.")
+        st.stop()
 
     if not workouts_df.empty:
         workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
@@ -567,10 +579,10 @@ if st.session_state.get("logged_in") and page == "Workouts":
     # ROUTINES SELECTION
     # ----------------------
     routines = session.query(Routine).all()
-    routine_names = [r.name for r in routines]
+    routine_names = [r.name for r in routines] if routines else []
     selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
 
-    if selected_routine_name != "Custom":
+    if selected_routine_name != "Custom" and routine_names:
         routine = session.query(Routine).filter_by(name=selected_routine_name).first()
         routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
         st.subheader(f"Routine: {routine.name} ({routine.goal})")
