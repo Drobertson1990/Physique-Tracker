@@ -508,124 +508,76 @@ if st.session_state.logged_in and page == "Meals":
         )
         st.plotly_chart(fig_weekly)
         
-    # ----------------------
+# ----------------------
 # WORKOUT PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Workouts":
-    st.header("Log Workout")
-    exercise = st.text_input("Exercise")
-    sets = st.number_input("Sets", 1)
-    reps = st.number_input("Reps", 1)
-    weight = st.number_input("Weight", 0.0)
-    rest_time = st.number_input("Rest (seconds)", 60)
-    date = st.date_input("Date", datetime.date.today())
-
-if st.button("Save Workout"):
-    session.add(Workout(
-        user_id=user_id,
-        exercise=exercise,
-        sets=sets,
-        reps=reps,
-        weight=weight,
-        rest_time=rest_time,  # <- Save it
-        date=date
-    ))
-    session.commit()
-    st.success("Workout saved!")
-
-    # Display summary (optional)
-    workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
-    if not workouts.empty:
-        workouts["volume"] = workouts["sets"] * workouts["reps"] * workouts["weight"]
-        workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
-        summary = workouts.groupby(["week","exercise"])["volume"].sum().reset_index()
-        fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
-        st.plotly_chart(fig)
-
-# ----------------------
-# EXERCISE LIBRARY SELECTION
-# ----------------------
-exercise_library = [ex.name for ex in session.query(Exercise).all()]
-
-selected_exercise = st.selectbox("Select Exercise", exercise_library)
-
-exercise_info = session.query(Exercise).filter_by(name=selected_exercise).first()
-if exercise_info:
-    st.write(f"**Description:** {exercise_info.description}")
-    if exercise_info.image_url:
-        st.image(exercise_info.image_url, width=300)
-
-# ----------------------
-# WORKOUT LOGGING
 # ----------------------
 if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
 
     # Exercise selection
+    exercise_library = [ex.name for ex in session.query(Exercise).all()]
     exercise = st.selectbox("Exercise", exercise_library)
     
-exercise = st.text_input("Exercise")
-sets = st.number_input("Sets", 1)
-reps = st.number_input("Reps", 1)
-weight = st.number_input("Weight", 0.0)
-rest_time = st.number_input("Rest (seconds)", 60)
-goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
-date = st.date_input("Date", datetime.date.today())
+    sets = st.number_input("Sets", 1, min_value=1)
+    reps = st.number_input("Reps", 1, min_value=1)
+    weight = st.number_input("Weight", 0.0, min_value=0.0)
+    rest_time = st.number_input("Rest (seconds)", 60, min_value=0)
+    goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+    date = st.date_input("Date", datetime.date.today())
 
-   if st.button("Save Workout"):
-    session.add(Workout(
-        user_id=user_id,
-        exercise=exercise,
-        sets=sets,
-        reps=reps,
-        weight=weight,
-        rest_time=rest_time,
-        goal=goal,
-        date=date
-    ))
-    session.commit()
-    st.success("Workout saved!")
-# ----------------------
-# ROUTINES SELECTION
-# ----------------------
-routines = session.query(Routine).all()
-routine_names = [r.name for r in routines]
-selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
+    if st.button("Save Workout"):
+        session.add(Workout(
+            user_id=st.session_state.user_id,
+            exercise=exercise,
+            sets=sets,
+            reps=reps,
+            weight=weight,
+            rest_time=rest_time,
+            goal=goal,
+            date=date
+        ))
+        session.commit()
+        st.success("Workout saved!")
 
-if selected_routine_name != "Custom":
-    routine = session.query(Routine).filter_by(name=selected_routine_name).first()
-    routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-    st.subheader(f"Routine: {routine.name} ({routine.goal})")
-
-    for re in routine_exercises:
-        ex = session.query(Exercise).get(re.exercise_id)
-        st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
-
-# ----------------------
-# WORKOUT PROGRESS TRACKING
-# ----------------------
-workouts_df = pd.read_sql(
-    session.query(Workout).filter_by(user_id=st.session_state.user_id).statement,
-    engine
-)
-
-if not workouts_df.empty:
-    workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
-    workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
-
-    weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
-    
-    fig = px.bar(
-        weekly_summary, 
-        x="week", 
-        y="volume", 
-        color="exercise", 
-        title="Weekly Workout Volume"
+    # ----------------------
+    # Display workout summary
+    # ----------------------
+    workouts_df = pd.read_sql(
+        session.query(Workout).filter_by(user_id=st.session_state.user_id).statement,
+        engine
     )
-    st.plotly_chart(fig)
-else:
-    st.info("No workouts logged yet.")
 
+    if not workouts_df.empty:
+        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
+        workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
+
+        weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
+        fig = px.bar(
+            weekly_summary, 
+            x="week", 
+            y="volume", 
+            color="exercise", 
+            title="Weekly Workout Volume"
+        )
+        st.plotly_chart(fig)
+    else:
+        st.info("No workouts logged yet.")
+
+    # ----------------------
+    # ROUTINES SELECTION
+    # ----------------------
+    routines = session.query(Routine).all()
+    routine_names = [r.name for r in routines]
+    selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
+
+    if selected_routine_name != "Custom":
+        routine = session.query(Routine).filter_by(name=selected_routine_name).first()
+        routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
+        st.subheader(f"Routine: {routine.name} ({routine.goal})")
+
+        for re in routine_exercises:
+            ex = session.query(Exercise).get(re.exercise_id)
+            st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
