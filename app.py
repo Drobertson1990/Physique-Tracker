@@ -107,6 +107,14 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
+def login_user(user):
+    st.session_state.logged_in = True
+    st.session_state.user_id = user.id
+    st.session_state.user_email = user.email
+    st.session_state.page = "Dosing"
+    # Safe rerun
+    st.experimental_rerun()
+
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
@@ -129,11 +137,7 @@ if not st.session_state.logged_in:
     if auth_mode == "Login" and st.sidebar.button("Login"):
         user = session.query(User).filter_by(email=email_input).first()
         if user and user.check_password(password_input):
-            st.session_state.logged_in = True
-            st.session_state.user_id = user.id
-            st.session_state.user_email = user.email
-            st.session_state.page = "Dosing"
-            st.experimental_rerun()
+            login_user(user)  # call the safe function
         else:
             st.sidebar.error("Invalid credentials")
 
