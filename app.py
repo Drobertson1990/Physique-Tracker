@@ -748,7 +748,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         ))
         session.commit()
         st.success("Workout saved!")
-        st.rerun()
+        st.experimental_rerun()
 
     st.markdown("---")
 
@@ -760,55 +760,55 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         engine
     )
 
-    if workouts_df.empty:
+    if not workouts_df.empty:
+        workouts_df["date"] = pd.to_datetime(workouts_df["date"])
+        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
+        workouts_df["week"] = workouts_df["date"].dt.isocalendar().week
+        workouts_df["1RM"] = workouts_df["weight"] * (1 + workouts_df["reps"] / 30)
+
+        # ----------------------
+        # 1️⃣ Volume PR Tracker
+        # ----------------------
+        st.subheader("🏆 Volume & 1RM Personal Records")
+        pr_df = workouts_df.groupby("exercise").agg({
+            "volume": "max",
+            "1RM": "max"
+        }).reset_index().sort_values("volume", ascending=False)
+        st.dataframe(pr_df, use_container_width=True)
+
+        # ----------------------
+        # 2️⃣ Strength Progression Chart
+        # ----------------------
+        st.subheader("📈 Strength Progression")
+        exercise_list = workouts_df["exercise"].unique()
+        selected_ex = st.selectbox("Select Exercise to Track", exercise_list, key="progress_exercise")
+        filtered = workouts_df[workouts_df["exercise"] == selected_ex]
+
+        fig_progress = px.line(
+            filtered.sort_values("date"),
+            x="date",
+            y="weight",
+            markers=True,
+            title=f"{selected_ex} Weight Progression"
+        )
+        st.plotly_chart(fig_progress, use_container_width=True)
+
+        # ----------------------
+        # 3️⃣ Weekly Volume Summary
+        # ----------------------
+        st.subheader("📊 Weekly Volume")
+        weekly_summary = workouts_df.groupby(["week", "exercise"])["volume"].sum().reset_index()
+        fig_weekly = px.bar(
+            weekly_summary,
+            x="week",
+            y="volume",
+            color="exercise",
+            title="Weekly Workout Volume"
+        )
+        st.plotly_chart(fig_weekly, use_container_width=True)
+
+    else:
         st.info("No workouts logged yet.")
-        st.stop()
-
-    workouts_df["date"] = pd.to_datetime(workouts_df["date"])
-    workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
-    workouts_df["week"] = workouts_df["date"].dt.isocalendar().week
-    workouts_df["1RM"] = workouts_df["weight"] * (1 + workouts_df["reps"] / 30)
-
-    # ----------------------
-    # 1️⃣ Volume PR Tracker
-    # ----------------------
-    st.subheader("🏆 Volume & 1RM Personal Records")
-    pr_df = workouts_df.groupby("exercise").agg({
-        "volume": "max",
-        "1RM": "max"
-    }).reset_index().sort_values("volume", ascending=False)
-    st.dataframe(pr_df, use_container_width=True)
-
-    # ----------------------
-    # 2️⃣ Strength Progression Chart
-    # ----------------------
-    st.subheader("📈 Strength Progression")
-    exercise_list = workouts_df["exercise"].unique()
-    selected_ex = st.selectbox("Select Exercise to Track", exercise_list, key="progress_exercise")
-    filtered = workouts_df[workouts_df["exercise"] == selected_ex]
-
-    fig_progress = px.line(
-        filtered.sort_values("date"),
-        x="date",
-        y="weight",
-        markers=True,
-        title=f"{selected_ex} Weight Progression"
-    )
-    st.plotly_chart(fig_progress, use_container_width=True)
-
-    # ----------------------
-    # 3️⃣ Weekly Volume Summary
-    # ----------------------
-    st.subheader("📊 Weekly Volume")
-    weekly_summary = workouts_df.groupby(["week", "exercise"])["volume"].sum().reset_index()
-    fig_weekly = px.bar(
-        weekly_summary,
-        x="week",
-        y="volume",
-        color="exercise",
-        title="Weekly Workout Volume"
-    )
-    st.plotly_chart(fig_weekly, use_container_width=True)
 
     st.markdown("---")
 
@@ -827,7 +827,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
             col_edit, col_delete = st.columns([1,1])
             with col_edit:
                 if st.button("Update", key=f"update_{idx}"):
-                    workout = session.query(Workout).get(row["id"])
+                    workout = session.get(Workout, row["id"])
                     workout.sets = int(new_sets)
                     workout.reps = int(new_reps)
                     workout.weight = float(new_weight)
@@ -835,114 +835,112 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
                     workout.date = new_date
                     session.commit()
                     st.success("Workout updated!")
-                    st.rerun()
+                    st.experimental_rerun()
             with col_delete:
                 if st.button("Delete", key=f"delete_{idx}"):
-                    workout = session.query(Workout).get(row["id"])
+                    workout = session.get(Workout, row["id"])
                     session.delete(workout)
                     session.commit()
                     st.success("Workout deleted!")
-                    st.rerun()
+                    st.experimental_rerun()
 
-# ----------------------
-# ROUTINE BUILDER
-# ----------------------
-st.markdown("---")
-st.subheader("📝 Routine Builder")
+    # ----------------------
+    # ROUTINE BUILDER
+    # ----------------------
+    st.markdown("---")
+    st.subheader("📝 Routine Builder")
 
-# Load routines
-routines = session.query(Routine).all()
-routine_names = [r.name for r in routines] if routines else []
+    # Load routines
+    routines = session.query(Routine).all()
+    routine_names = [r.name for r in routines] if routines else []
 
-selected_routine_name = st.selectbox(
-    "Select Routine",
-    ["Custom"] + routine_names,
-    key="routine_select"
-)
+    selected_routine_name = st.selectbox(
+        "Select Routine",
+        ["Custom"] + routine_names,
+        key="routine_select"
+    )
 
-# Initialize session state for custom routine
-if "custom_routine" not in st.session_state:
-    st.session_state.custom_routine = []
+    # Initialize session state for custom routine
+    if "custom_routine" not in st.session_state:
+        st.session_state.custom_routine = []
 
-# Load selected routine exercises
-if selected_routine_name != "Custom" and routine_names:
-    routine = session.query(Routine).filter_by(name=selected_routine_name).first()
-    routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-    
-    # Convert to editable list in session state
-    st.session_state.custom_routine = [
-        {
-            "exercise_id": re.exercise_id,
-            "exercise_name": session.query(Exercise).get(re.exercise_id).name,
-            "sets": re.sets,
-            "reps": re.reps,
-            "rest_time": re.rest_time
-        } for re in routine_exercises
-    ]
+    # Load selected routine exercises
+    if selected_routine_name != "Custom" and routine_names:
+        routine = session.query(Routine).filter_by(name=selected_routine_name).first()
+        routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
+        
+        st.session_state.custom_routine = [
+            {
+                "exercise_id": re.exercise_id,
+                "exercise_name": session.get(Exercise, re.exercise_id).name,
+                "sets": re.sets,
+                "reps": re.reps,
+                "rest_time": re.rest_time
+            } for re in routine_exercises
+        ]
 
-# Display current routine
-st.markdown("**Current Routine**")
-for idx, ex in enumerate(st.session_state.custom_routine):
-    st.markdown(f"**{ex['exercise_name']}** - {ex['sets']}x{ex['reps']}, Rest {ex['rest_time']}s")
-    
-    # Editable inputs
-    cols = st.columns([1,1,1,1])
-    with cols[0]:
-        ex["sets"] = st.number_input(f"Sets {idx}", min_value=1, value=ex["sets"], key=f"sets_r_{idx}")
-    with cols[1]:
-        ex["reps"] = st.number_input(f"Reps {idx}", min_value=1, value=ex["reps"], key=f"reps_r_{idx}")
-    with cols[2]:
-        ex["rest_time"] = st.number_input(f"Rest {idx}", min_value=0, value=ex["rest_time"], key=f"rest_r_{idx}")
-    with cols[3]:
-        up_col, down_col, del_col = st.columns([1,1,1])
-        if up_col.button("⬆️", key=f"up_{idx}") and idx > 0:
-            st.session_state.custom_routine[idx], st.session_state.custom_routine[idx-1] = \
-                st.session_state.custom_routine[idx-1], st.session_state.custom_routine[idx]
-            st.experimental_rerun()
-        if down_col.button("⬇️", key=f"down_{idx}") and idx < len(st.session_state.custom_routine)-1:
-            st.session_state.custom_routine[idx], st.session_state.custom_routine[idx+1] = \
-                st.session_state.custom_routine[idx+1], st.session_state.custom_routine[idx]
-            st.experimental_rerun()
-        if del_col.button("🗑️", key=f"del_{idx}"):
-            st.session_state.custom_routine.pop(idx)
-            st.experimental_rerun()
+    # Display current routine safely
+    st.markdown("**Current Routine**")
+    for idx in range(len(st.session_state.custom_routine)):
+        ex = st.session_state.custom_routine[idx]
+        st.markdown(f"**{ex['exercise_name']}** - {ex['sets']}x{ex['reps']}, Rest {ex['rest_time']}s")
+        cols = st.columns([1,1,1,1])
+        with cols[0]:
+            ex["sets"] = st.number_input(f"Sets {idx}", min_value=1, value=ex["sets"], key=f"sets_r_{idx}")
+        with cols[1]:
+            ex["reps"] = st.number_input(f"Reps {idx}", min_value=1, value=ex["reps"], key=f"reps_r_{idx}")
+        with cols[2]:
+            ex["rest_time"] = st.number_input(f"Rest {idx}", min_value=0, value=ex["rest_time"], key=f"rest_r_{idx}")
+        with cols[3]:
+            up_col, down_col, del_col = st.columns([1,1,1])
+            if up_col.button("⬆️", key=f"up_{idx}") and idx > 0:
+                st.session_state.custom_routine[idx], st.session_state.custom_routine[idx-1] = \
+                    st.session_state.custom_routine[idx-1], st.session_state.custom_routine[idx]
+                st.experimental_rerun()
+            if down_col.button("⬇️", key=f"down_{idx}") and idx < len(st.session_state.custom_routine)-1:
+                st.session_state.custom_routine[idx], st.session_state.custom_routine[idx+1] = \
+                    st.session_state.custom_routine[idx+1], st.session_state.custom_routine[idx]
+                st.experimental_rerun()
+            if del_col.button("🗑️", key=f"del_{idx}"):
+                st.session_state.custom_routine.pop(idx)
+                st.experimental_rerun()
 
-# Add new exercise
-st.markdown("**Add Exercise to Routine**")
-exercise_options = [ex.name for ex in all_exercises]
-new_ex_name = st.selectbox("Exercise", exercise_options, key="new_routine_exercise")
-new_sets = st.number_input("Sets", min_value=1, value=3, step=1, key="new_routine_sets")
-new_reps = st.number_input("Reps", min_value=1, value=10, step=1, key="new_routine_reps")
-new_rest = st.number_input("Rest Time (s)", min_value=0, value=60, step=5, key="new_routine_rest")
+    # Add new exercise
+    st.markdown("**Add Exercise to Routine**")
+    exercise_options = [ex.name for ex in all_exercises]
+    new_ex_name = st.selectbox("Exercise", exercise_options, key="new_routine_exercise")
+    new_sets = st.number_input("Sets", min_value=1, value=3, step=1, key="new_routine_sets")
+    new_reps = st.number_input("Reps", min_value=1, value=10, step=1, key="new_routine_reps")
+    new_rest = st.number_input("Rest Time (s)", min_value=0, value=60, step=5, key="new_routine_rest")
 
-if st.button("➕ Add Exercise to Routine"):
-    new_ex_id = session.query(Exercise).filter_by(name=new_ex_name).first().id
-    st.session_state.custom_routine.append({
-        "exercise_id": new_ex_id,
-        "exercise_name": new_ex_name,
-        "sets": new_sets,
-        "reps": new_reps,
-        "rest_time": new_rest
-    })
-    st.success(f"{new_ex_name} added!")
-    st.experimental_rerun()
+    if st.button("➕ Add Exercise to Routine"):
+        new_ex_id = session.query(Exercise).filter_by(name=new_ex_name).first().id
+        st.session_state.custom_routine.append({
+            "exercise_id": new_ex_id,
+            "exercise_name": new_ex_name,
+            "sets": new_sets,
+            "reps": new_reps,
+            "rest_time": new_rest
+        })
+        st.success(f"{new_ex_name} added!")
+        st.experimental_rerun()
 
-# Save routine to DB
-if selected_routine_name != "Custom" and st.button("💾 Save Routine Changes"):
-    # Delete old exercises
-    session.query(RoutineExercise).filter_by(routine_id=routine.id).delete()
-    session.commit()
-    # Add new exercises
-    for ex in st.session_state.custom_routine:
-        session.add(RoutineExercise(
-            routine_id=routine.id,
-            exercise_id=ex["exercise_id"],
-            sets=ex["sets"],
-            reps=ex["reps"],
-            rest_time=ex["rest_time"]
-        ))
-    session.commit()
-    st.success(f"Routine '{routine.name}' updated!")
+    # Save routine to DB
+    if selected_routine_name != "Custom" and st.button("💾 Save Routine Changes"):
+        # Delete old exercises
+        session.query(RoutineExercise).filter_by(routine_id=routine.id).delete()
+        session.commit()
+        # Add new exercises
+        for ex in st.session_state.custom_routine:
+            session.add(RoutineExercise(
+                routine_id=routine.id,
+                exercise_id=ex["exercise_id"],
+                sets=ex["sets"],
+                reps=ex["reps"],
+                rest_time=ex["rest_time"]
+            ))
+        session.commit()
+        st.success(f"Routine '{routine.name}' updated!")
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
