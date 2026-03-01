@@ -310,13 +310,10 @@ st.sidebar.title("User Authentication")
 # LOGIN FUNCTION
 # ----------------------
 def login_user(user):
-    # Update session state
     st.session_state.logged_in = True
     st.session_state.user_id = user.id
     st.session_state.user_email = user.email
     st.session_state.page = "Dosing"
-    # Signal to rerun
-    return True
 
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
@@ -344,9 +341,8 @@ if auth_mode == "Register" and st.sidebar.button("Register"):
 if auth_mode == "Login" and st.sidebar.button("Login"):
     user = session.query(User).filter_by(email=email_input).first()
     if user and user.check_password(password_input):
-        rerun_needed = login_user(user)
-        if rerun_needed:
-            st.experimental_rerun()  # Rerun AFTER session state is updated
+        login_user(user)
+        st.experimental_rerun()  # Rerun AFTER session state is updated
     else:
         st.sidebar.error("Invalid credentials")
 
