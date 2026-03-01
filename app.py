@@ -166,7 +166,6 @@ def login_user(user):
     st.session_state.user_id = user.id
     st.session_state.user_email = user.email
     st.session_state.page = "Dosing"
-    # Safe rerun
     st.experimental_rerun()
 
 if not st.session_state.logged_in:
@@ -191,16 +190,18 @@ if not st.session_state.logged_in:
     if auth_mode == "Login" and st.sidebar.button("Login"):
         user = session.query(User).filter_by(email=email_input).first()
         if user and user.check_password(password_input):
-            login_user(user)  # call the safe function
+            login_user(user)
         else:
             st.sidebar.error("Invalid credentials")
 
 else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
-    if st.session_state.page not in pages:
-        st.session_state.page = "Dosing"
-    st.session_state.page = st.sidebar.selectbox("Select Page", pages, index=pages.index(st.session_state.page))
+    st.session_state.page = st.sidebar.selectbox(
+        "Select Page",
+        pages,
+        index=pages.index(st.session_state.page)
+    )
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
 
     if st.session_state.page == "Logout":
@@ -210,7 +211,6 @@ else:
         st.session_state.page = "Dosing"
         st.success("Logged out successfully")
         st.experimental_rerun()
-
 # ----------------------
 # PAGE LOGIC
 # ----------------------
