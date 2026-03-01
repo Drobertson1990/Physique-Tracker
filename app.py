@@ -132,7 +132,6 @@ class RoutineExercise(Base):
 # CREATE TABLES
 # ----------------------
 Base.metadata.create_all(engine)
-from sqlalchemy import inspect, text
 
 # Inspect current columns in the workouts table
 inspector = inspect(engine)
