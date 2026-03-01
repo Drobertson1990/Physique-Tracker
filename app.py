@@ -327,9 +327,9 @@ def login_user(user):
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email", key="email_input")
-password_input = st.sidebar.text_input("Password", type="password", key="password_input")
-st.sidebar.button("Login", key="login_btn")
-st.sidebar.button("Register", key="register_btn")
+    password_input = st.sidebar.text_input("Password", type="password", key="password_input")
+    st.sidebar.button("Login", key="login_btn")
+    st.sidebar.button("Register", key="register_btn")
 
     if auth_mode == "Register" and st.sidebar.button("Register"):
         if email_input.strip() and password_input.strip():
