@@ -306,46 +306,52 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
-# ----------------------
-# LOGIN FUNCTION
-# ----------------------
+# Ensure session state keys exist
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+if "page" not in st.session_state:
+    st.session_state.page = "Dosing"
+
 def login_user(user):
+    """Set session state for logged in user."""
     st.session_state.logged_in = True
     st.session_state.user_id = user.id
     st.session_state.user_email = user.email
     st.session_state.page = "Dosing"
 
+# Show login/register options only if NOT logged in
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
     password_input = st.sidebar.text_input("Password", type="password")
 
-if auth_mode == "Register" and st.sidebar.button("Register"):
-    if email_input.strip() and password_input.strip():
-        existing = session.query(User).filter_by(email=email_input).first()
-        if existing:
-            st.sidebar.error("User already exists")
+    if auth_mode == "Register" and st.sidebar.button("Register"):
+        if email_input.strip() and password_input.strip():
+            existing = session.query(User).filter_by(email=email_input).first()
+            if existing:
+                st.sidebar.error("User already exists")
+            else:
+                new_user = User(email=email_input)
+                new_user.set_password(password_input)
+                session.add(new_user)
+                session.commit()
+                st.sidebar.success("User registered! You can now log in.")
         else:
-            new_user = User(email=email_input)
-            new_user.set_password(password_input)
-            session.add(new_user)
-            session.commit()
-            st.sidebar.success("User registered! You can now log in.")
-            # Optional: Auto-login after registration
-            # rerun_needed = login_user(new_user)
-            # if rerun_needed:
-            #     st.experimental_rerun()
-    else:
-        st.sidebar.error("Enter email and password")
+            st.sidebar.error("Enter email and password")
 
-if auth_mode == "Login" and st.sidebar.button("Login"):
-    user = session.query(User).filter_by(email=email_input).first()
-    if user and user.check_password(password_input):
-        login_user(user)
-        st.experimental_rerun()  # Rerun AFTER session state is updated
-    else:
-        st.sidebar.error("Invalid credentials")
+    if auth_mode == "Login" and st.sidebar.button("Login"):
+        user = session.query(User).filter_by(email=email_input).first()
+        if user and user.check_password(password_input):
+            login_user(user)
+            st.experimental_rerun()  # Safe rerun AFTER session state updates
+        else:
+            st.sidebar.error("Invalid credentials")
 
+# Show navigation menu if logged in
 else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
@@ -356,6 +362,7 @@ else:
     )
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
 
+    # Logout logic
     if st.session_state.page == "Logout":
         st.session_state.logged_in = False
         st.session_state.user_id = None
