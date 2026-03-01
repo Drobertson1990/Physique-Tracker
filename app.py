@@ -699,64 +699,60 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     # ----------------------
     all_exercises = session.query(Exercise).all()
     if not all_exercises:
-        st.warning("No exercises available. Please add exercises first.")
+        st.warning("No exercises available.")
         st.stop()
 
-# ----------------------
-# Muscle Filter (Multi-select)
-# ----------------------
-col1, col2 = st.columns(2)
-with col1:
-    # Safely get muscle groups, ignoring exercises without the attribute or None values
-    muscle_groups = sorted(
-        list(
-            set(
-                getattr(ex, "muscle_group", None)
-                for ex in all_exercises
-                if getattr(ex, "muscle_group", None)
-            )
+    # ----------------------
+    # Muscle Filter (using category, not muscle_group)
+    # ----------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        muscle_groups = sorted(list(set(ex.category for ex in all_exercises if ex.category)))
+
+        selected_muscles = st.multiselect(
+            "Filter by Muscle Group",
+            muscle_groups,
+            key="muscle_filter_multi"
         )
-    )
-
-    selected_muscles = st.multiselect(
-        "Filter by Muscle Group",
-        muscle_groups,
-        key="muscle_filter_multi"
-    )
-# ----------------------
-# Filtered Exercise Selection
-# ----------------------
-with col2:
-    if selected_muscles:
-        filtered_exercises = [
-            ex for ex in all_exercises 
-            if getattr(ex, "muscle_group", None) in selected_muscles
-        ]
-    else:
-        filtered_exercises = all_exercises
-
-    exercise_options = [
-        f"{ex.name} ({ex.muscle_group})" if getattr(ex, "muscle_group", None) else ex.name
-        for ex in filtered_exercises
-    ]
-
-    selected_exercise_display = st.selectbox("Exercise", exercise_options, key="workout_exercise")
-
-    # Extract actual exercise name
-    exercise = selected_exercise_display.split(" (")[0]
 
     # ----------------------
-    # Workout inputs
+    # Filtered Exercise Selection
+    # ----------------------
+    with col2:
+        if selected_muscles:
+            filtered_exercises = [
+                ex for ex in all_exercises
+                if ex.category in selected_muscles
+            ]
+        else:
+            filtered_exercises = all_exercises
+
+        exercise_options = [
+            f"{ex.name} ({ex.category})"
+            for ex in filtered_exercises
+        ]
+
+        selected_exercise_display = st.selectbox(
+            "Exercise",
+            exercise_options,
+            key="workout_exercise"
+        )
+
+        exercise = selected_exercise_display.split(" (")[0]
+
+    # ----------------------
+    # Workout Inputs
     # ----------------------
     sets = st.number_input("Sets", min_value=1, value=1, step=1)
     reps = st.number_input("Reps", min_value=1, value=1, step=1)
-    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5)
     rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
     goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
     date = st.date_input("Date", datetime.date.today())
 
     # ----------------------
-    # Save workout
+    # Save Workout
     # ----------------------
     if st.button("Save Workout"):
         session.add(Workout(
@@ -773,22 +769,19 @@ with col2:
         st.success("Workout saved!")
 
     # ----------------------
-    # Display workout summary
+    # Display Summary
     # ----------------------
-    try:
-        workouts_df = pd.read_sql(
-            session.query(Workout).filter_by(user_id=user_id).statement,
-            engine
-        )
-    except Exception:
-        st.error("Unable to load workouts. Check database setup.")
-        st.stop()
+    workouts_df = pd.read_sql(
+        session.query(Workout).filter_by(user_id=user_id).statement,
+        engine
+    )
 
     if not workouts_df.empty:
         workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
         workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
 
         weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
+
         fig = px.bar(
             weekly_summary,
             x="week",
