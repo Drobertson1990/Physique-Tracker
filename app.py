@@ -104,7 +104,8 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
-if not st.session_state.logged_in:
+# --- NOT LOGGED IN ---
+if not st.session_state.get("logged_in", False):
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
     password_input = st.sidebar.text_input("Password", type="password")
@@ -129,17 +130,25 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.user_id = user.id
             st.session_state.user_email = user.email
-            st.session_state.page = "Dosing"
-            st.experimental_rerun()
+            st.session_state.page = "Dosing"  # default page
+            st.experimental_rerun()  # only call rerun after login
         else:
             st.sidebar.error("Invalid credentials")
 
+# --- LOGGED IN ---
 else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
+
     if st.session_state.page not in pages:
         st.session_state.page = "Dosing"
-    st.session_state.page = st.sidebar.selectbox("Select Page", pages, index=pages.index(st.session_state.page))
+
+    st.session_state.page = st.sidebar.selectbox(
+        "Select Page",
+        pages,
+        index=pages.index(st.session_state.page)
+    )
+
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
 
     if st.session_state.page == "Logout":
@@ -153,50 +162,50 @@ else:
 # ----------------------
 # PAGE LOGIC
 # ----------------------
-user_id = st.session_state.user_id
-page = st.session_state.page
+user_id = st.session_state.get("user_id")
+page = st.session_state.get("page")
 
 # ----------------------
 # DOSING PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Dosing":
+if st.session_state.get("logged_in") and page == "Dosing":
     st.header("Dosing Tracker Page")
-    # Add your prepopulated compounds dictionary and dose logging here (unchanged)
+    # Your prepopulated compounds + dose logging here
 
 # ----------------------
 # MEALS PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Meals":
+if st.session_state.get("logged_in") and page == "Meals":
     st.header("Meals & Calorie Tracker")
-    # Add your Meals page code here (unchanged)
+    # Your meals page code here
 
 # ----------------------
 # WORKOUT PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Workouts":
+if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
-    # Add your Workouts page code here (unchanged)
+    # Your workouts page code here
 
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Bloodwork":
+if st.session_state.get("logged_in") and page == "Bloodwork":
     st.header("Log Bloodwork")
-    # Add your Bloodwork page code here (unchanged)
+    # Your bloodwork page code here
 
 # ----------------------
 # PHOTOS PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Photos":
+if st.session_state.get("logged_in") and page == "Photos":
     st.header("Progress Photos")
     if not os.path.exists("photos"):
         os.makedirs("photos")
-    # Add your Photos page code here (unchanged)
+    # Your photos page code here
 
 # ----------------------
 # DASHBOARD PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Dashboard":
+if st.session_state.get("logged_in") and page == "Dashboard":
     st.header("Overview")
     doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
     meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
@@ -207,47 +216,6 @@ if st.session_state.logged_in and page == "Dashboard":
     col2.metric("Meals Logged", len(meals))
     col3.metric("Workouts Logged", len(workouts))
 
-    st.subheader("Weekly Overview")
-    if not meals.empty:
-        meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
-        weekly_meals = meals.groupby("week")[["calories","protein","carbs","fats"]].sum().reset_index()
-        st.dataframe(weekly_meals)
-    else:
-        st.info("No meals logged yet.")
-
-    if not doses.empty:
-        doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
-        weekly_doses = doses.groupby("week")["amount"].sum().reset_index()
-        st.dataframe(weekly_doses)
-    else:
-        st.info("No doses logged yet.")
-
-    if not workouts.empty:
-        workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
-        weekly_workouts = workouts.groupby("week")[["sets","reps","weight"]].sum().reset_index()
-        st.dataframe(weekly_workouts)
-    else:
-        st.info("No workouts logged yet.")
-
-    # ----------------------
-# DASHBOARD
-# ----------------------
-if st.session_state.logged_in and st.session_state.page == "Dashboard":
-    st.header("Overview")
-    user_id = st.session_state.user_id  # always use session_state
-
-    # Fetch data safely
-    doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
-    meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
-    workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
-
-    # Metrics
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Doses Logged", len(doses))
-    col2.metric("Meals Logged", len(meals))
-    col3.metric("Workouts Logged", len(workouts))
-
-    # Optional: charts or summaries can go here
     st.subheader("Weekly Overview")
     if not meals.empty:
         meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
