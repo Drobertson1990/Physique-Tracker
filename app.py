@@ -548,9 +548,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         engine
     )
 
-    if doses.empty:
-        st.info("No doses logged yet.")
-    else:
+    if not doses.empty:
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
 
@@ -566,7 +564,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         # Active Cycle Tracker (last 7 days)
         # ----------------------
         st.subheader("🟢 Active Cycles (Last 7 Days)")
-        cutoff = pd.Timestamp(datetime.date.today() - pd.Timedelta(days=7))
+        cutoff = pd.Timestamp.today() - pd.Timedelta(days=7)
         active_compounds = doses[doses["date"] >= cutoff]
         if active_compounds.empty:
             st.info("No active compounds in the past 7 days")
@@ -586,6 +584,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
             title="Compound Stack Timeline"
         )
         st.plotly_chart(fig_stack, use_container_width=True)
+    else:
+        st.info("No doses logged yet.")
         
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
