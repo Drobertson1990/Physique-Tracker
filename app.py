@@ -201,8 +201,7 @@ preload_exercises = [
     {"name": "Upright Row", "equipment": "barbell", "muscle_group": "Traps/Shoulders", "secondary_muscles": "Biceps"},
     {"name": "Cable Lateral Raise", "equipment": "cable machine", "muscle_group": "Medial Delts", "secondary_muscles": ""},
 
-    # ARMS
-    # Biceps
+    # ARMS (Biceps)
     {"name": "Barbell Biceps Curl", "equipment": "barbell/EZ bar", "muscle_group": "Biceps", "secondary_muscles": "Forearms"},
     {"name": "Dumbbell Biceps Curl", "equipment": "dumbbells", "muscle_group": "Biceps", "secondary_muscles": "Forearms"},
     {"name": "Hammer Curl", "equipment": "dumbbells", "muscle_group": "Brachialis", "secondary_muscles": "Forearms"},
@@ -211,7 +210,8 @@ preload_exercises = [
     {"name": "Cable Biceps Curl", "equipment": "cable machine", "muscle_group": "Biceps", "secondary_muscles": ""},
     {"name": "Incline Dumbbell Curl", "equipment": "incline bench & dumbbells", "muscle_group": "Biceps", "secondary_muscles": ""},
     {"name": "Reverse Barbell Curl", "equipment": "barbell", "muscle_group": "Forearms", "secondary_muscles": "Biceps"},
-    # Triceps
+
+    # ARMS (Triceps)
     {"name": "Triceps Pushdown", "equipment": "cable machine", "muscle_group": "Triceps", "secondary_muscles": ""},
     {"name": "Overhead Dumbbell Triceps Extension", "equipment": "dumbbell", "muscle_group": "Triceps", "secondary_muscles": "Shoulders"},
     {"name": "Skull Crushers", "equipment": "EZ bar", "muscle_group": "Triceps", "secondary_muscles": "Forearms"},
@@ -244,8 +244,8 @@ preload_exercises = [
     {"name": "Battle Ropes", "equipment": "battle ropes", "muscle_group": "Full Body", "secondary_muscles": "Arms/Core"},
     {"name": "Box Jump", "equipment": "plyo box", "muscle_group": "Legs", "secondary_muscles": "Explosive Power"},
     {"name": "Burpees", "equipment": "bodyweight", "muscle_group": "Full Body", "secondary_muscles": "Cardio"},
-
-    # CABLE / MACHINE ISOLATION
+    
+    # CABLE / MACHINE ISOLATION VARIATIONS
     {"name": "Cable Chest Fly High", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Shoulders"},
     {"name": "Cable Chest Fly Low", "equipment": "cable machine", "muscle_group": "Chest", "secondary_muscles": "Shoulders"},
     {"name": "Cable Row High", "equipment": "cable machine", "muscle_group": "Upper Back", "secondary_muscles": "Biceps"},
@@ -258,16 +258,30 @@ preload_exercises = [
     {"name": "Leg Press Single Leg", "equipment": "leg press machine", "muscle_group": "Quads", "secondary_muscles": "Glutes"},
     {"name": "Hip Abduction Machine", "equipment": "machine", "muscle_group": "Abductors", "secondary_muscles": "Glutes"},
     {"name": "Hip Adduction Machine", "equipment": "machine", "muscle_group": "Adductors", "secondary_muscles": "Inner Thighs"},
-    {"name": "Seated Calf Machine", "equipment": "machine", "muscle_group": "Calves", "secondary
+    {"name": "Seated Calf Machine", "equipment": "machine", "muscle_group": "Calves", "secondary_muscles": ""},
+    {"name": "Seated Ab Crunch Machine", "equipment": "machine", "muscle_group": "Abs", "secondary_muscles": ""},
 
-     for ex in preload_exercises:
+    # BODYWEIGHT VARIATIONS
+    {"name": "Jump Squat", "equipment": "bodyweight", "muscle_group": "Legs", "secondary_muscles": "Glutes"},
+    {"name": "Pistol Squat", "equipment": "bodyweight", "muscle_group": "Quads", "secondary_muscles": "Balance/Core"},
+    {"name": "Push-Up Wide", "equipment": "bodyweight", "muscle_group": "Chest", "secondary_muscles": "Triceps"},
+    {"name": "Push-Up Close", "equipment": "bodyweight", "muscle_group": "Triceps", "secondary_muscles": "Chest"},
+    {"name": "Lunge Jump", "equipment": "bodyweight", "muscle_group": "Legs", "secondary_muscles": "Cardio"},
+    {"name": "Step-Ups", "equipment": "bench/bodyweight", "muscle_group": "Legs", "secondary_muscles": "Glutes"},
+    {"name": "Chin-Up Close Grip", "equipment": "pull-up bar", "muscle_group": "Biceps", "secondary_muscles": "Back"},
+    {"name": "Chin-Up Wide Grip", "equipment": "pull-up bar", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
+    {"name": "Inverted Row Feet Elevated", "equipment": "bodyweight", "muscle_group": "Back", "secondary_muscles": "Biceps"},
+]
+
+# Insert into DB if not exists
+for ex in preload_exercises:
     if not session.query(Exercise).filter_by(name=ex["name"]).first():
         session.add(Exercise(
             name=ex["name"],
-            description="",
-            muscle_group=ex["muscle_group"],
             equipment=ex["equipment"],
-            secondary_muscles=ex["secondary_muscles"]
+            description="",  # optional
+            image_url="",    # optional
+            category=ex["muscle_group"]
         ))
 session.commit()
 
