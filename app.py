@@ -106,12 +106,21 @@ class Photo(Base):
 
 class Exercise(Base):
     __tablename__ = "exercises"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    description = Column(String)
-    image_url = Column(String)
-    category = Column(String)  # e.g., Chest, Back, Legs, Arms
 
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+
+    # Primary muscle group (Chest, Back, etc.)
+    category = Column(String, nullable=False)
+
+    # Equipment required (barbell, dumbbells, bodyweight, etc.)
+    equipment = Column(String, default="")
+
+    # Secondary muscles
+    secondary_muscles = Column(String, default="")
+
+    description = Column(String, default="")
+    image_url = Column(String, default="")
 class Routine(Base):
     __tablename__ = "routines"
     id = Column(Integer, primary_key=True)
@@ -132,6 +141,10 @@ class RoutineExercise(Base):
 # CREATE TABLES
 # ----------------------
 Base.metadata.create_all(engine)
+# --- TEMP DATABASE RESET (REMOVE AFTER FIRST DEPLOY) ---
+Base.metadata.drop_all(engine)
+Base.metadata.create_all(engine)
+# --------------------------------------------------------
 
 # ----------------------
 # PRELOAD EXERCISES
@@ -272,17 +285,11 @@ preload_exercises = [
     {"name": "Chin-Up Wide Grip", "equipment": "pull-up bar", "muscle_group": "Lats", "secondary_muscles": "Biceps"},
     {"name": "Inverted Row Feet Elevated", "equipment": "bodyweight", "muscle_group": "Back", "secondary_muscles": "Biceps"},
 ]
-
 for ex in preload_exercises:
-    if not session.query(Exercise).filter_by(name=ex["name"]).first():
-        session.add(Exercise(
-            name=ex["name"],
-            equipment=ex["equipment"],
-            secondary_muscles=ex["secondary_muscles"],
-            description="",  # optional
-            image_url="",    # optional
-            category=ex["muscle_group"]
-        ))
+    exists = session.query(Exercise).filter_by(name=ex["name"]).first()
+    if not exists:
+        session.add(Exercise(**ex))
+
 session.commit()
 
 # ----------------------
