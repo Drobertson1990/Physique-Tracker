@@ -694,126 +694,66 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
     st.header("Log Workout")
 
-# ----------------------
-# ADVANCED Exercise Selection
-# ----------------------
+    # ----------------------
+    # Load all exercises
+    # ----------------------
+    all_exercises = session.query(Exercise).all()
+    if not all_exercises:
+        st.warning("No exercises available. Please add exercises first.")
+        st.stop()
 
-all_exercises = session.query(Exercise).all()
+    # ----------------------
+    # Muscle Filter (Multi-select)
+    # ----------------------
+    col1, col2 = st.columns(2)
+    with col1:
+        muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
+        selected_muscles = st.multiselect("Filter by Muscle Group", muscle_groups, key="muscle_filter_multi")
 
-if not all_exercises:
-    st.warning("No exercises available. Please add exercises first.")
-    st.stop()
+    # ----------------------
+    # Filtered Exercise Selection
+    # ----------------------
+    with col2:
+        if selected_muscles:
+            filtered_exercises = [ex for ex in all_exercises if ex.muscle_group in selected_muscles]
+        else:
+            filtered_exercises = all_exercises
 
-st.subheader("Exercise Filters")
+        exercise_options = [
+            f"{ex.name} ({ex.muscle_group})" if ex.muscle_group else ex.name
+            for ex in filtered_exercises
+        ]
+        selected_exercise_display = st.selectbox("Exercise", exercise_options, key="workout_exercise")
 
-col1, col2 = st.columns(2)
+        # Extract actual exercise name
+        exercise = selected_exercise_display.split(" (")[0]
 
-# ----------------------
-# Muscle Filter (Multi-select)
-# ----------------------
-with col1:
-    muscle_groups = sorted(
-        list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group]))
-    )
+    # ----------------------
+    # Workout inputs
+    # ----------------------
+    sets = st.number_input("Sets", min_value=1, value=1, step=1)
+    reps = st.number_input("Reps", min_value=1, value=1, step=1)
+    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+    rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
+    goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+    date = st.date_input("Date", datetime.date.today())
 
-    selected_muscles = st.multiselect(
-        "Filter by Muscle Group",
-        muscle_groups,
-        key="muscle_filter_multi"
-    )
-
-# ----------------------
-# Equipment Filter
-# ----------------------
-with col2:
-    equipment_types = sorted(
-        list(set([ex.equipment for ex in all_exercises if ex.equipment]))
-    )
-
-    selected_equipment = st.multiselect(
-        "Filter by Equipment",
-        equipment_types,
-        key="equipment_filter_multi"
-    )
-
-# ----------------------
-# Search Bar
-# ----------------------
-search_query = st.text_input(
-    "Search Exercise",
-    key="exercise_search"
-).lower()
-
-# ----------------------
-# Apply Filters
-# ----------------------
-filtered_exercises = all_exercises
-
-if selected_muscles:
-    filtered_exercises = [
-        ex for ex in filtered_exercises
-        if ex.muscle_group in selected_muscles
-    ]
-
-if selected_equipment:
-    filtered_exercises = [
-        ex for ex in filtered_exercises
-        if ex.equipment in selected_equipment
-    ]
-
-if search_query:
-    filtered_exercises = [
-        ex for ex in filtered_exercises
-        if search_query in ex.name.lower()
-    ]
-
-if not filtered_exercises:
-    st.warning("No exercises match your filters.")
-    st.stop()
-
-# ----------------------
-# Display Exercise Options (with details)
-# ----------------------
-exercise_options = [
-    f"{ex.name} ({ex.muscle_group} | {ex.equipment})"
-    for ex in filtered_exercises
-]
-
-selected_exercise_display = st.selectbox(
-    "Select Exercise",
-    exercise_options,
-    key="workout_exercise_select"
-)
-
-# Extract actual exercise name
-exercise = selected_exercise_display.split(" (")[0]
-
-# ----------------------
-# Workout inputs
-# ----------------------
-sets = st.number_input("Sets", min_value=1, value=1, step=1)
-reps = st.number_input("Reps", min_value=1, value=1, step=1)
-weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
-rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
-goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
-date = st.date_input("Date", datetime.date.today())
-
-# ----------------------
-# Save workout
-# ----------------------
-if st.button("Save Workout"):
-    session.add(Workout(
-    user_id=user_id,
-    exercise=exercise,
-    sets=int(sets),
-    reps=int(reps),
-    weight=float(weight),
-    rest_time=int(rest_time),
-    goal=goal,
-    date=date
-))
-    session.commit()
-    st.success("Workout saved!")
+    # ----------------------
+    # Save workout
+    # ----------------------
+    if st.button("Save Workout"):
+        session.add(Workout(
+            user_id=user_id,
+            exercise=exercise,
+            sets=int(sets),
+            reps=int(reps),
+            weight=float(weight),
+            rest_time=int(rest_time),
+            goal=goal,
+            date=date
+        ))
+        session.commit()
+        st.success("Workout saved!")
 
     # ----------------------
     # Display workout summary
@@ -849,10 +789,10 @@ if st.button("Save Workout"):
     routines = session.query(Routine).all()
     routine_names = [r.name for r in routines] if routines else []
     selected_routine_name = st.selectbox(
-    "Select Routine",
-    ["Custom"] + routine_names,
-    key="workout_routine_select"
-)
+        "Select Routine",
+        ["Custom"] + routine_names,
+        key="workout_routine_select"
+    )
 
     if selected_routine_name != "Custom" and routine_names:
         routine = session.query(Routine).filter_by(name=selected_routine_name).first()
