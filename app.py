@@ -400,18 +400,22 @@ if st.session_state.logged_in and page == "Dashboard":
 # ----------------------
 # DOSING PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Dosing":
+if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing":
     st.header("💉 Dosing Tracker")
+
+    import datetime
+    import pandas as pd
+    import plotly.express as px
 
     user_id = st.session_state.get("user_id")
     if not user_id:
-        st.info("Please log in to use the Dosing Tracker.")
+        st.info("Please log in to view this page.")
         st.stop()
 
     # ----------------------
-    # Prepopulated compounds with detailed info
+    # 1️⃣ Preloaded Compounds
     # ----------------------
-    compounds = {
+    preloaded_compounds = {
         # ------------------ PEPTIDES ------------------
         "CJC-1295 (DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Long-acting GH stimulation", "Typical Goal":"Lean bulk / fat loss"},
         "CJC-1295 (no DAC)": {"Category":"Peptide", "Subclass":"GHRH Analog", "Primary Purpose":"Pulsatile GH release", "Typical Goal":"Lean mass"},
@@ -475,38 +479,22 @@ if st.session_state.logged_in and page == "Dosing":
     }
 
     # ----------------------
-    # Load saved custom compounds from DB or session state
+    # 2️⃣ Session State for Custom Compounds
     # ----------------------
     if "custom_compounds" not in st.session_state:
-        # Try loading from database
-        try:
-            saved_custom = pd.read_sql(
-                session.query(CustomCompound).filter_by(user_id=user_id).statement,
-                engine
-            )
-            st.session_state.custom_compounds = {
-                row["name"]: {
-                    "Category": row["category"],
-                    "Subclass": row["subclass"],
-                    "Primary Purpose": row["primary_purpose"],
-                    "Typical Goal": row["typical_goal"]
-                } for _, row in saved_custom.iterrows()
-            }
-        except Exception:
-            st.session_state.custom_compounds = {}
+        st.session_state.custom_compounds = {}
 
-    # Merge preloaded + user custom compounds
+    # ----------------------
+    # 3️⃣ Compound Selection
+    # ----------------------
     compound_options = list(preloaded_compounds.keys()) + list(st.session_state.custom_compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
 
-    # ----------------------
-    # Dose Inputs
-    # ----------------------
     amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
-    date = st.date_input("Date", datetime.date.today(), key="dose_date")
+    dose_date = st.date_input("Date", datetime.date.today(), key="dose_date")
 
     # ----------------------
-    # Determine compound info
+    # 4️⃣ Handle Custom Compound Input
     # ----------------------
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
@@ -520,15 +508,15 @@ if st.session_state.logged_in and page == "Dosing":
             "Primary Purpose": primary_purpose,
             "Typical Goal": typical_goal
         }
-    elif compound_choice in st.session_state.custom_compounds:
-        compound_name = compound_choice
-        compound_info = st.session_state.custom_compounds[compound_choice]
     else:
         compound_name = compound_choice
-        compound_info = preloaded_compounds[compound_choice]
+        if compound_choice in preloaded_compounds:
+            compound_info = preloaded_compounds[compound_choice]
+        else:
+            compound_info = st.session_state.custom_compounds[compound_choice]
 
     # ----------------------
-    # Display Compound Info
+    # 5️⃣ Display Compound Info
     # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
@@ -537,62 +525,49 @@ if st.session_state.logged_in and page == "Dosing":
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
     # ----------------------
-    # Save Dose
+    # 6️⃣ Save Dose
     # ----------------------
-    if st.button("Save Dose", key="save_dose_btn"):
-        if compound_name.strip() == "" or amount <= 0:
+    if st.button("Save Dose"):
+        if not compound_name or amount <= 0:
             st.error("Please enter a valid compound and amount")
         else:
-            # Save dose
-            session.add(Dose(user_id=user_id, compound=compound_name, amount=amount, date=date))
-            session.commit()
-            st.success("Dose saved!")
-
-            # If custom compound, save to session state + DB
-            if compound_choice == "Custom" and compound_name.strip() != "":
+            # Save custom compound to session state
+            if compound_choice == "Custom":
                 st.session_state.custom_compounds[compound_name] = compound_info
-                # Save to DB if you have a CustomCompound table
-                try:
-                    session.add(CustomCompound(
-                        user_id=user_id,
-                        name=compound_name,
-                        category=compound_info["Category"],
-                        subclass=compound_info["Subclass"],
-                        primary_purpose=compound_info["Primary Purpose"],
-                        typical_goal=compound_info["Typical Goal"]
-                    ))
-                    session.commit()
-                except Exception:
-                    st.warning("Could not save custom compound to database (check table)")
-
+            # Save dose to DB
+            session.add(Dose(user_id=user_id, compound=compound_name, amount=amount, date=dose_date))
+            session.commit()
+            st.success(f"Dose saved: {compound_name} {amount} mg on {dose_date}")
             st.experimental_rerun()
 
     # ----------------------
-    # Fetch Doses
+    # 7️⃣ Fetch Doses
     # ----------------------
     doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if not doses.empty:
+    if doses.empty:
+        st.info("No doses logged yet.")
+    else:
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
 
         # ----------------------
         # Weekly Compound Summary Cards
         # ----------------------
-        st.subheader("📋 Weekly Compound Summary")
+        st.subheader("📅 Weekly Compound Summary")
         weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
         for _, row in weekly_summary.iterrows():
-            st.info(f"Week {row['week']}: {row['compound']} – {row['amount']} mg")
+            st.metric(label=f"{row['compound']} (Week {row['week']})", value=f"{row['amount']} mg")
 
         # ----------------------
-        # Active Cycle Tracker
+        # Active Cycle Tracker (last 7 days)
         # ----------------------
-        st.subheader("🟢 Active Cycles")
-        seven_days_ago = pd.Timestamp.today() - pd.Timedelta(days=7)
-        active_compounds = doses[doses["date"] >= seven_days_ago]
+        st.subheader("🟢 Active Cycles (Last 7 Days)")
+        cutoff = pd.Timestamp(datetime.date.today() - pd.Timedelta(days=7))
+        active_compounds = doses[doses["date"] >= cutoff]
         if active_compounds.empty:
             st.info("No active compounds in the past 7 days")
         else:
@@ -602,18 +577,15 @@ if st.session_state.logged_in and page == "Dosing":
         # ----------------------
         # Visual Stack Timeline
         # ----------------------
-        st.subheader("📊 Compound Stack Timeline")
-        timeline_summary = doses.groupby(["date","compound"])["amount"].sum().reset_index()
+        st.subheader("📊 Visual Stack Timeline")
         fig_stack = px.bar(
-            timeline_summary,
+            doses.sort_values("date"),
             x="date",
             y="amount",
             color="compound",
-            title="Compound Stack Over Time"
+            title="Compound Stack Timeline"
         )
         st.plotly_chart(fig_stack, use_container_width=True)
-    else:
-        st.info("No doses logged yet.")
         
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
