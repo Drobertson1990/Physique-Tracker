@@ -1,4 +1,5 @@
 import streamlit as st
+st.write("APP STARTING")
 import pandas as pd
 import datetime
 import os
@@ -21,7 +22,7 @@ from sqlalchemy import inspect, text
 # ----------------------
 # DATABASE SETUP
 # ----------------------
-DB_PATH = "tracker_v2.db"
+DB_PATH = "tracker.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
