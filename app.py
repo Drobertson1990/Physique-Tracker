@@ -773,21 +773,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         for re in routine_exercises:
             ex = session.query(Exercise).get(re.exercise_id)
             st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
-    # ----------------------
-    # ROUTINES SELECTION
-    # ----------------------
-    routines = session.query(Routine).all()
-    routine_names = [r.name for r in routines] if routines else []
-    selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
-
-    if selected_routine_name != "Custom" and routine_names:
-        routine = session.query(Routine).filter_by(name=selected_routine_name).first()
-        routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-        st.subheader(f"Routine: {routine.name} ({routine.goal})")
-
-        for re in routine_exercises:
-            ex = session.query(Exercise).get(re.exercise_id)
-            st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
+  
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
