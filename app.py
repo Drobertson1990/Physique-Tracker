@@ -120,6 +120,17 @@ class RoutineExercise(Base):
 # CREATE TABLES
 # ----------------------
 Base.metadata.create_all(engine)
+from sqlalchemy import inspect, text
+
+# Inspect current columns in the workouts table
+inspector = inspect(engine)
+columns = [c['name'] for c in inspector.get_columns('workouts')]
+
+# Add missing columns safely
+if 'rest_time' not in columns:
+    engine.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+if 'goal' not in columns:
+    engine.execute(text("ALTER TABLE workouts ADD COLUMN goal STRING DEFAULT 'Hypertrophy'"))
 
 # ----------------------
 # SESSION STATE INIT
