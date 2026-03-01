@@ -677,6 +677,12 @@ if st.session_state.logged_in and page == "Meals":
 # ----------------------
 # WORKOUT PAGE
 # ----------------------
+import streamlit as st
+import pandas as pd
+import datetime
+import plotly.express as px
+from sqlalchemy.orm import Session
+
 if st.session_state.get("logged_in") and st.session_state.get("page") == "Workouts":
 
     st.set_page_config(layout="wide")
@@ -695,14 +701,17 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         st.warning("No exercises available.")
         st.stop()
 
-    col1, col2 = st.columns(2)
-
+    # ----------------------
     # Muscle Filter
+    # ----------------------
+    col1, col2 = st.columns(2)
     with col1:
         muscle_groups = sorted(list(set(ex.category for ex in all_exercises if ex.category)))
         selected_muscles = st.multiselect("Filter by Muscle Group", muscle_groups)
 
+    # ----------------------
     # Exercise Selection
+    # ----------------------
     with col2:
         if selected_muscles:
             filtered_exercises = [ex for ex in all_exercises if ex.category in selected_muscles]
@@ -711,23 +720,35 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
         exercise_options = [f"{ex.name} ({ex.category})" for ex in filtered_exercises]
         selected_exercise_display = st.selectbox("Exercise", exercise_options)
-        exercise = selected_exercise_display.split(" (")[0]
+        exercise_name = selected_exercise_display.split(" (")[0]
+
+    # ----------------------
+    # Prefill from Routine (if selected)
+    # ----------------------
+    prefill = st.session_state.get("prefill_workout", {})
+    sets = prefill.get("sets", 1)
+    reps = prefill.get("reps", 1)
+    rest_time = prefill.get("rest_time", 60)
+    goal = prefill.get("goal", "Hypertrophy")
+    exercise_name = prefill.get("exercise_name", exercise_name)
 
     # ----------------------
     # Workout Inputs
     # ----------------------
     col3, col4, col5 = st.columns(3)
     with col3:
-        sets = st.number_input("Sets", min_value=1, value=1, step=1)
-        reps = st.number_input("Reps", min_value=1, value=1, step=1)
+        sets = st.number_input("Sets", min_value=1, value=sets, step=1)
+        reps = st.number_input("Reps", min_value=1, value=reps, step=1)
     with col4:
         weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5)
-        rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
+        rest_time = st.number_input("Rest (seconds)", min_value=0, value=rest_time, step=5)
     with col5:
-        goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+        goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"], index=["Hypertrophy","Strength","Fat Loss","Endurance"].index(goal))
         date = st.date_input("Date", datetime.date.today())
 
-    # Volume & 1RM
+    # ----------------------
+    # Volume & 1RM display
+    # ----------------------
     volume = sets * reps * weight
     one_rm = weight * (1 + reps / 30)
     st.markdown(f"**Session Volume:** {volume:.1f} | **Estimated 1RM:** {one_rm:.1f} lbs")
@@ -738,7 +759,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     if st.button("Save Workout"):
         session.add(Workout(
             user_id=user_id,
-            exercise=exercise,
+            exercise=exercise_name,
             sets=int(sets),
             reps=int(reps),
             weight=float(weight),
@@ -748,7 +769,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         ))
         session.commit()
         st.success("Workout saved!")
-        st.experimental_rerun()
+        st.session_state.prefill_workout = {}  # clear prefill after save
+        st.rerun()
 
     st.markdown("---")
 
@@ -760,55 +782,55 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         engine
     )
 
-    if not workouts_df.empty:
-        workouts_df["date"] = pd.to_datetime(workouts_df["date"])
-        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
-        workouts_df["week"] = workouts_df["date"].dt.isocalendar().week
-        workouts_df["1RM"] = workouts_df["weight"] * (1 + workouts_df["reps"] / 30)
-
-        # ----------------------
-        # 1️⃣ Volume PR Tracker
-        # ----------------------
-        st.subheader("🏆 Volume & 1RM Personal Records")
-        pr_df = workouts_df.groupby("exercise").agg({
-            "volume": "max",
-            "1RM": "max"
-        }).reset_index().sort_values("volume", ascending=False)
-        st.dataframe(pr_df, use_container_width=True)
-
-        # ----------------------
-        # 2️⃣ Strength Progression Chart
-        # ----------------------
-        st.subheader("📈 Strength Progression")
-        exercise_list = workouts_df["exercise"].unique()
-        selected_ex = st.selectbox("Select Exercise to Track", exercise_list, key="progress_exercise")
-        filtered = workouts_df[workouts_df["exercise"] == selected_ex]
-
-        fig_progress = px.line(
-            filtered.sort_values("date"),
-            x="date",
-            y="weight",
-            markers=True,
-            title=f"{selected_ex} Weight Progression"
-        )
-        st.plotly_chart(fig_progress, use_container_width=True)
-
-        # ----------------------
-        # 3️⃣ Weekly Volume Summary
-        # ----------------------
-        st.subheader("📊 Weekly Volume")
-        weekly_summary = workouts_df.groupby(["week", "exercise"])["volume"].sum().reset_index()
-        fig_weekly = px.bar(
-            weekly_summary,
-            x="week",
-            y="volume",
-            color="exercise",
-            title="Weekly Workout Volume"
-        )
-        st.plotly_chart(fig_weekly, use_container_width=True)
-
-    else:
+    if workouts_df.empty:
         st.info("No workouts logged yet.")
+        st.stop()
+
+    workouts_df["date"] = pd.to_datetime(workouts_df["date"])
+    workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
+    workouts_df["week"] = workouts_df["date"].dt.isocalendar().week
+    workouts_df["1RM"] = workouts_df["weight"] * (1 + workouts_df["reps"] / 30)
+
+    # ----------------------
+    # 1️⃣ Volume & 1RM PR Tracker
+    # ----------------------
+    st.subheader("🏆 Volume & 1RM Personal Records")
+    pr_df = workouts_df.groupby("exercise").agg({
+        "volume": "max",
+        "1RM": "max"
+    }).reset_index().sort_values("volume", ascending=False)
+    st.dataframe(pr_df, use_container_width=True)
+
+    # ----------------------
+    # 2️⃣ Strength Progression Chart
+    # ----------------------
+    st.subheader("📈 Strength Progression")
+    exercise_list = workouts_df["exercise"].unique()
+    selected_ex = st.selectbox("Select Exercise to Track", exercise_list, key="progress_exercise")
+    filtered = workouts_df[workouts_df["exercise"] == selected_ex]
+
+    fig_progress = px.line(
+        filtered.sort_values("date"),
+        x="date",
+        y="weight",
+        markers=True,
+        title=f"{selected_ex} Weight Progression"
+    )
+    st.plotly_chart(fig_progress, use_container_width=True)
+
+    # ----------------------
+    # 3️⃣ Weekly Volume Summary
+    # ----------------------
+    st.subheader("📊 Weekly Volume")
+    weekly_summary = workouts_df.groupby(["week", "exercise"])["volume"].sum().reset_index()
+    fig_weekly = px.bar(
+        weekly_summary,
+        x="week",
+        y="volume",
+        color="exercise",
+        title="Weekly Workout Volume"
+    )
+    st.plotly_chart(fig_weekly, use_container_width=True)
 
     st.markdown("---")
 
@@ -827,7 +849,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
             col_edit, col_delete = st.columns([1,1])
             with col_edit:
                 if st.button("Update", key=f"update_{idx}"):
-                    workout = session.get(Workout, row["id"])
+                    workout = session.query(Workout).get(row["id"])
                     workout.sets = int(new_sets)
                     workout.reps = int(new_reps)
                     workout.weight = float(new_weight)
@@ -835,14 +857,14 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
                     workout.date = new_date
                     session.commit()
                     st.success("Workout updated!")
-                    st.experimental_rerun()
+                    st.rerun()
             with col_delete:
                 if st.button("Delete", key=f"delete_{idx}"):
-                    workout = session.get(Workout, row["id"])
+                    workout = session.query(Workout).get(row["id"])
                     session.delete(workout)
                     session.commit()
                     st.success("Workout deleted!")
-                    st.experimental_rerun()
+                    st.rerun()
 
     # ----------------------
     # ROUTINE BUILDER
@@ -850,7 +872,6 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     st.markdown("---")
     st.subheader("📝 Routine Builder")
 
-    # Load routines
     routines = session.query(Routine).all()
     routine_names = [r.name for r in routines] if routines else []
 
@@ -868,22 +889,28 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     if selected_routine_name != "Custom" and routine_names:
         routine = session.query(Routine).filter_by(name=selected_routine_name).first()
         routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-        
         st.session_state.custom_routine = [
             {
                 "exercise_id": re.exercise_id,
-                "exercise_name": session.get(Exercise, re.exercise_id).name,
+                "exercise_name": session.query(Exercise).get(re.exercise_id).name,
                 "sets": re.sets,
                 "reps": re.reps,
-                "rest_time": re.rest_time
+                "rest_time": re.rest_time,
+                "goal": routine.goal if hasattr(routine, "goal") else "Hypertrophy"
             } for re in routine_exercises
         ]
 
-    # Display current routine safely
+    # Display current routine
     st.markdown("**Current Routine**")
-    for idx in range(len(st.session_state.custom_routine)):
-        ex = st.session_state.custom_routine[idx]
+    for idx, ex in enumerate(st.session_state.custom_routine):
         st.markdown(f"**{ex['exercise_name']}** - {ex['sets']}x{ex['reps']}, Rest {ex['rest_time']}s")
+
+        # ---------- Prefill button ----------
+        if st.button(f"➡️ Prefill Workout with {ex['exercise_name']}", key=f"prefill_{idx}"):
+            st.session_state.prefill_workout = ex
+            st.experimental_rerun()
+
+        # Editable inputs
         cols = st.columns([1,1,1,1])
         with cols[0]:
             ex["sets"] = st.number_input(f"Sets {idx}", min_value=1, value=ex["sets"], key=f"sets_r_{idx}")
@@ -920,7 +947,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
             "exercise_name": new_ex_name,
             "sets": new_sets,
             "reps": new_reps,
-            "rest_time": new_rest
+            "rest_time": new_rest,
+            "goal": "Hypertrophy"
         })
         st.success(f"{new_ex_name} added!")
         st.experimental_rerun()
