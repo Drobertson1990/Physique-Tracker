@@ -547,17 +547,54 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
 
-        # ----------------------
-        # 7️⃣ Weekly Compound Summary Cards (Dashboard)
-        # ----------------------
-        st.subheader("📅 Weekly Compound Dashboard")
-        weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index()
+# ----------------------
+# 7️⃣ Weekly Compound Dashboard (Color-coded by Category)
+# ----------------------
+st.subheader("📅 Weekly Compound Dashboard")
 
-        for compound in weekly_summary["compound"].unique():
-            comp_data = weekly_summary[weekly_summary["compound"] == compound]
-            total_amount = comp_data["amount"].sum()
-            last_week = comp_data["week"].max()
-            st.metric(label=f"{compound} (Last Week {last_week})", value=f"{total_amount} mg")
+# Merge preloaded + custom compounds for category lookup
+all_compounds_info = {**preloaded_compounds, **st.session_state.custom_compounds}
+
+# Group weekly totals
+weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index()
+
+# Define category colors
+category_colors = {
+    "Peptide": "lightblue",
+    "Peptide Hormone": "blue",
+    "AAS": "orange",
+    "Custom": "green",
+    "Other": "grey"
+}
+
+# Build cards
+for compound in weekly_summary["compound"].unique():
+    comp_data = weekly_summary[weekly_summary["compound"] == compound]
+    total_amount = comp_data["amount"].sum()
+    last_week = comp_data["week"].max()
+    
+    # Determine category
+    if compound in all_compounds_info:
+        category = all_compounds_info[compound].get("Category", "Other")
+    else:
+        category = "Custom"
+    
+    color = category_colors.get(category, "grey")
+    
+    # Display card as metric with background color
+    st.markdown(
+        f"""
+        <div style="
+            background-color: {color};
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+        ">
+        <strong>{compound}</strong> (Week {last_week}): {total_amount} mg
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
         # ----------------------
         # 8️⃣ Active Cycle Tracker (last 7 days)
