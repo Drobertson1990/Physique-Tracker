@@ -786,7 +786,8 @@ selected_exercise_display = st.selectbox(
 )
 
 # Extract actual exercise name
-exercise = selected_exercise_display.split(" (")[0]
+    exercise = selected_exercise_display.split(" (")[0]
+
     # ----------------------
     # Workout inputs
     # ----------------------
