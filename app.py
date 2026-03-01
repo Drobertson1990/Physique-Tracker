@@ -480,19 +480,12 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
 
-    # Dose Inputs
-    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
-    date = st.date_input("Date", datetime.date.today(), key="dose_date")
-
-    # ----------------------
-    # Handle Custom Compound
-    # ----------------------
     if compound_choice == "Custom":
-        compound_name = st.text_input("Enter Custom Compound Name", key="custom_name")
-        category = st.text_input("Category", key="custom_category")
-        subclass = st.text_input("Subclass", key="custom_subclass")
-        primary_purpose = st.text_input("Primary Purpose", key="custom_primary")
-        typical_goal = st.text_input("Typical Goal", key="custom_goal")
+        compound_name = st.text_input("Enter Custom Compound Name")
+        category = st.text_input("Category")
+        subclass = st.text_input("Subclass")
+        primary_purpose = st.text_input("Primary Purpose")
+        typical_goal = st.text_input("Typical Goal")
         compound_info = {
             "Category": category,
             "Subclass": subclass,
@@ -503,8 +496,11 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         compound_name = compound_choice
         compound_info = compounds[compound_choice]
 
+    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
+    date = st.date_input("Date", datetime.date.today(), key="dose_date")
+
     # ----------------------
-    # Display Compound Info
+    # Display compound info
     # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
@@ -523,58 +519,75 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
             session.commit()
             st.success("Dose saved!")
 
+    st.markdown("---")
+
     # ----------------------
-    # Fetch Doses
+    # Fetch and process doses
     # ----------------------
     doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if doses.empty:
-        st.info("No doses logged yet.")
-    else:
-        doses["date"] = pd.to_datetime(doses["date"])
+    if not doses.empty:
+        doses["date"] = pd.to_datetime(doses["date"])  # Ensure datetime
         doses["week"] = doses["date"].dt.isocalendar().week
 
         # ----------------------
         # Weekly Compound Summary Cards
         # ----------------------
-        st.subheader("📋 Weekly Compound Summary")
-        weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
-        weeks = weekly_summary["week"].unique()
-        for w in weeks:
-            week_data = weekly_summary[weekly_summary["week"] == w]
-            cols = st.columns(len(week_data))
-            for i, row in week_data.iterrows():
-                cols[i % len(cols)].metric(label=row["compound"], value=f"{row['amount']} mg", delta=None)
-
-        # ----------------------
-        # Visual Stack Timeline
-        # ----------------------
-        st.subheader("📊 Compound Stack Timeline")
-        fig_timeline = px.timeline(
-            doses.sort_values("date"),
-            x_start="date",
-            x_end="date",
-            y="compound",
-            color="compound",
-            title="Dose Timeline"
-        )
-        fig_timeline.update_yaxes(autorange="reversed")  # Highest on top
-        st.plotly_chart(fig_timeline, use_container_width=True)
+        st.subheader("📦 Weekly Compound Summary")
+        last_week = doses[doses["date"] >= (pd.Timestamp.today() - pd.Timedelta(days=7))]
+        compounds_weekly = last_week.groupby("compound")["amount"].sum().reset_index()
+        for _, row in compounds_weekly.iterrows():
+            st.metric(label=row["compound"], value=f"{row['amount']} mg (last 7d)")
 
         # ----------------------
         # Active Cycle Tracker
         # ----------------------
-        st.subheader("🟢 Active Cycles")
-        active_compounds = doses[doses["date"] >= (datetime.date.today() - pd.Timedelta(days=7))]
-        if active_compounds.empty:
-            st.info("No active compounds in the past 7 days")
-        else:
-            for c in active_compounds["compound"].unique():
-                st.success(f"{c} active in last 7 days")
-    
+        st.subheader("⏱ Active Cycle Tracker")
+        if not doses.empty:
+            cycle_start = doses["date"].min()
+            cycle_end = doses["date"].max()
+            duration_days = (cycle_end - cycle_start).days + 1
+            st.info(f"Active cycle: {duration_days} days ({cycle_start.date()} → {cycle_end.date()})")
+
+        # ----------------------
+        # Visual Stack Timeline
+        # ----------------------
+        st.subheader("📊 Visual Stack Timeline")
+        doses_summary = doses.groupby(["date","compound"])["amount"].sum().reset_index()
+        fig_stack = px.bar(
+            doses_summary,
+            x="date",
+            y="amount",
+            color="compound",
+            title="Stack Timeline",
+            labels={"amount":"Dose (mg)"},
+            height=400
+        )
+        st.plotly_chart(fig_stack, use_container_width=True)
+
+    else:
+        st.info("No doses logged yet.")
+# ----------------------
+# Active Cycle Tracker
+# ----------------------
+st.subheader("🟢 Active Cycles")
+
+# Ensure 'date' column is datetime
+doses["date"] = pd.to_datetime(doses["date"])
+
+# Filter last 7 days
+seven_days_ago = pd.Timestamp.today() - pd.Timedelta(days=7)
+active_compounds = doses[doses["date"] >= seven_days_ago]
+
+if active_compounds.empty:
+    st.info("No active compounds in the past 7 days")
+else:
+    for c in active_compounds["compound"].unique():
+        st.success(f"{c} active in last 7 days")
+        
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
