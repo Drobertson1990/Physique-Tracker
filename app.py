@@ -678,7 +678,7 @@ if st.session_state.logged_in and page == "Meals":
 # WORKOUT PAGE
 # ----------------------
 if st.session_state.get("logged_in") and st.session_state.get("page") == "Workouts":
-
+    
     st.set_page_config(layout="wide")
     user_id = st.session_state.get("user_id")
     if not user_id:
@@ -688,9 +688,14 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     st.header("💪 Log Workout")
 
     # ----------------------
-    # Load Exercises
+    # Load Exercises safely
     # ----------------------
-    all_exercises = session.query(Exercise).all()
+    try:
+        all_exercises = session.query(Exercise).all()
+    except Exception as e:
+        st.error(f"Error loading exercises: {e}")
+        st.stop()
+
     if not all_exercises:
         st.warning("No exercises available.")
         st.stop()
@@ -699,20 +704,14 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     # Muscle Filter & Exercise Selection
     # ----------------------
     col1, col2 = st.columns(2)
-
     with col1:
         muscle_groups = sorted(list(set(ex.category for ex in all_exercises if ex.category)))
         selected_muscles = st.multiselect("Filter by Muscle Group", muscle_groups)
-
     with col2:
-        if selected_muscles:
-            filtered_exercises = [ex for ex in all_exercises if ex.category in selected_muscles]
-        else:
-            filtered_exercises = all_exercises
-
+        filtered_exercises = [ex for ex in all_exercises if ex.category in selected_muscles] if selected_muscles else all_exercises
         exercise_options = [f"{ex.name} ({ex.category})" for ex in filtered_exercises]
-
-        # Use prefill from routine if available
+        
+        # Prefill from routine if available
         prefill = st.session_state.get("prefill_workout")
         if prefill:
             default_ex = prefill.get("exercise_name")
@@ -723,31 +722,20 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         selected_exercise_display = st.selectbox("Exercise", exercise_options, index=default_idx)
         exercise = selected_exercise_display.split(" (")[0]
 
+    # Clear prefill
+    if prefill:
+        st.session_state.pop("prefill_workout")
+
     # ----------------------
     # Workout Inputs
     # ----------------------
     col3, col4, col5 = st.columns(3)
     with col3:
-        sets = st.number_input(
-            "Sets",
-            min_value=1,
-            value=prefill.get("sets") if prefill else 3,
-            step=1
-        )
-        reps = st.number_input(
-            "Reps",
-            min_value=1,
-            value=prefill.get("reps") if prefill else 10,
-            step=1
-        )
+        sets = st.number_input("Sets", min_value=1, value=prefill.get("sets") if prefill else 3, step=1)
+        reps = st.number_input("Reps", min_value=1, value=prefill.get("reps") if prefill else 10, step=1)
     with col4:
         weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5)
-        rest_time = st.number_input(
-            "Rest (seconds)",
-            min_value=0,
-            value=prefill.get("rest_time") if prefill else 60,
-            step=5
-        )
+        rest_time = st.number_input("Rest (seconds)", min_value=0, value=prefill.get("rest_time") if prefill else 60, step=5)
     with col5:
         goal = st.selectbox(
             "Goal",
@@ -756,12 +744,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         )
         date = st.date_input("Date", datetime.date.today())
 
-    # Clear prefill once loaded
-    if prefill:
-        st.session_state.pop("prefill_workout")
-
     # ----------------------
-    # Volume & Estimated 1RM
+    # Volume & 1RM
     # ----------------------
     volume = sets * reps * weight
     one_rm = weight * (1 + reps / 30)
@@ -808,11 +792,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     # 1️⃣ Volume & 1RM PR Tracker
     # ----------------------
     st.subheader("🏆 Volume & 1RM Personal Records")
-    pr_df = workouts_df.groupby("exercise").agg({
-        "volume": "max",
-        "1RM": "max"
-    }).reset_index().sort_values("volume", ascending=False)
-    st.dataframe(pr_df, use_container_width=True)
+    pr_df = workouts_df.groupby("exercise").agg({"volume":"max","1RM":"max"}).reset_index().sort_values("volume",ascending=False)
+    st.dataframe(pr_df,use_container_width=True)
 
     # ----------------------
     # 2️⃣ Strength Progression Chart
@@ -821,47 +802,34 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     exercise_list = workouts_df["exercise"].unique()
     selected_ex = st.selectbox("Select Exercise to Track", exercise_list, key="progress_exercise")
     filtered = workouts_df[workouts_df["exercise"] == selected_ex]
-
-    fig_progress = px.line(
-        filtered.sort_values("date"),
-        x="date",
-        y="weight",
-        markers=True,
-        title=f"{selected_ex} Weight Progression"
-    )
+    fig_progress = px.line(filtered.sort_values("date"), x="date", y="weight", markers=True, title=f"{selected_ex} Weight Progression")
     st.plotly_chart(fig_progress, use_container_width=True)
 
     # ----------------------
     # 3️⃣ Weekly Volume Summary
     # ----------------------
     st.subheader("📊 Weekly Volume")
-    weekly_summary = workouts_df.groupby(["week", "exercise"])["volume"].sum().reset_index()
-    fig_weekly = px.bar(
-        weekly_summary,
-        x="week",
-        y="volume",
-        color="exercise",
-        title="Weekly Workout Volume"
-    )
+    weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
+    fig_weekly = px.bar(weekly_summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
     st.plotly_chart(fig_weekly, use_container_width=True)
 
     st.markdown("---")
 
     # ----------------------
-    # 4️⃣ Edit / Delete Workouts
+    # 4️⃣ Edit/Delete Workouts
     # ----------------------
     st.subheader("✏️ Edit / Delete Workouts")
-    for idx, row in workouts_df.sort_values("date", ascending=False).iterrows():
+    for idx,row in workouts_df.sort_values("date",ascending=False).iterrows():
         with st.expander(f"{row['date'].date()} - {row['exercise']} ({row['sets']}x{row['reps']} @ {row['weight']} lbs)"):
             new_sets = st.number_input(f"Sets ({row['exercise']})", min_value=1, value=int(row['sets']), key=f"sets_{idx}")
             new_reps = st.number_input(f"Reps ({row['exercise']})", min_value=1, value=int(row['reps']), key=f"reps_{idx}")
             new_weight = st.number_input(f"Weight ({row['exercise']})", min_value=0.0, value=float(row['weight']), step=0.5, key=f"weight_{idx}")
             new_rest = st.number_input(f"Rest ({row['exercise']})", min_value=0, value=int(row['rest_time']), key=f"rest_{idx}")
             new_date = st.date_input(f"Date ({row['exercise']})", value=row['date'].date(), key=f"date_{idx}")
-
-            col_edit, col_delete = st.columns([1,1])
+            
+            col_edit,col_delete = st.columns([1,1])
             with col_edit:
-                if st.button("Update", key=f"update_{idx}"):
+                if st.button("Update",key=f"update_{idx}"):
                     workout = session.query(Workout).get(row["id"])
                     workout.sets = int(new_sets)
                     workout.reps = int(new_reps)
@@ -872,7 +840,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
                     st.success("Workout updated!")
                     st.experimental_rerun()
             with col_delete:
-                if st.button("Delete", key=f"delete_{idx}"):
+                if st.button("Delete",key=f"delete_{idx}"):
                     workout = session.query(Workout).get(row["id"])
                     session.delete(workout)
                     session.commit()
@@ -880,42 +848,38 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
                     st.experimental_rerun()
 
 # ----------------------
-# ROUTINE BUILDER
+# ROUTINE BUILDER with Drag & Drop
 # ----------------------
 st.markdown("---")
 st.subheader("📝 Routine Builder")
 
-# Load routines
-routines = session.query(Routine).all()
-routine_names = [r.name for r in routines] if routines else []
+# Safe load of exercises
+try:
+    all_exercises = session.query(Exercise).all()
+except:
+    all_exercises = []
 
-selected_routine_name = st.selectbox(
-    "Select Routine",
-    ["Custom"] + routine_names,
-    key="routine_select"
-)
+exercise_options = [ex.name for ex in all_exercises] if all_exercises else []
 
-# Initialize session state for custom routine
+# Initialize routine state
 if "custom_routine" not in st.session_state:
     st.session_state.custom_routine = []
 
-# Load selected routine exercises
-if selected_routine_name != "Custom" and routine_names:
+selected_routine_name = st.selectbox("Select Routine", ["Custom"] + [r.name for r in session.query(Routine).all()], key="routine_select")
+
+# Prefill routine exercises
+if selected_routine_name != "Custom":
     routine = session.query(Routine).filter_by(name=selected_routine_name).first()
     routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-    
-    # Convert to editable list in session state
-    st.session_state.custom_routine = [
-        {
-            "exercise_id": re.exercise_id,
-            "exercise_name": session.query(Exercise).get(re.exercise_id).name,
-            "sets": re.sets,
-            "reps": re.reps,
-            "rest_time": re.rest_time
-        } for re in routine_exercises
-    ]
+    st.session_state.custom_routine = [{
+        "exercise_id": re.exercise_id,
+        "exercise_name": session.query(Exercise).get(re.exercise_id).name,
+        "sets": re.sets,
+        "reps": re.reps,
+        "rest_time": re.rest_time
+    } for re in routine_exercises]
 
-# Display current routine with drag & drop
+# Drag & drop / reorder / delete
 st.markdown("**Current Routine**")
 for idx, ex in enumerate(st.session_state.custom_routine):
     st.markdown(f"**{ex['exercise_name']}** - {ex['sets']}x{ex['reps']}, Rest {ex['rest_time']}s")
@@ -931,59 +895,34 @@ for idx, ex in enumerate(st.session_state.custom_routine):
         if up_col.button("⬆️", key=f"up_{idx}") and idx > 0:
             st.session_state.custom_routine[idx], st.session_state.custom_routine[idx-1] = \
                 st.session_state.custom_routine[idx-1], st.session_state.custom_routine[idx]
-            st.session_state.trigger_rerun = True
+            st.experimental_rerun()
         if down_col.button("⬇️", key=f"down_{idx}") and idx < len(st.session_state.custom_routine)-1:
             st.session_state.custom_routine[idx], st.session_state.custom_routine[idx+1] = \
                 st.session_state.custom_routine[idx+1], st.session_state.custom_routine[idx]
-            st.session_state.trigger_rerun = True
+            st.experimental_rerun()
         if del_col.button("🗑️", key=f"del_{idx}"):
             st.session_state.custom_routine.pop(idx)
-            st.session_state.trigger_rerun = True
+            st.experimental_rerun()
 
 # Add new exercise
 st.markdown("**Add Exercise to Routine**")
-exercise_options = [ex.name for ex in all_exercises]
 new_ex_name = st.selectbox("Exercise", exercise_options, key="new_routine_exercise")
 new_sets = st.number_input("Sets", min_value=1, value=3, step=1, key="new_routine_sets")
 new_reps = st.number_input("Reps", min_value=1, value=10, step=1, key="new_routine_reps")
 new_rest = st.number_input("Rest Time (s)", min_value=0, value=60, step=5, key="new_routine_rest")
 
 if st.button("➕ Add Exercise to Routine"):
-    new_ex_id = session.query(Exercise).filter_by(name=new_ex_name).first().id
-    st.session_state.custom_routine.append({
-        "exercise_id": new_ex_id,
-        "exercise_name": new_ex_name,
-        "sets": new_sets,
-        "reps": new_reps,
-        "rest_time": new_rest
-    })
-    st.success(f"{new_ex_name} added!")
-    st.session_state.trigger_rerun = True
-
-# Save routine to DB
-if selected_routine_name != "Custom" and st.button("💾 Save Routine Changes"):
-    # Delete old exercises
-    session.query(RoutineExercise).filter_by(routine_id=routine.id).delete()
-    session.commit()
-    # Add new exercises
-    for ex in st.session_state.custom_routine:
-        session.add(RoutineExercise(
-            routine_id=routine.id,
-            exercise_id=ex["exercise_id"],
-            sets=ex["sets"],
-            reps=ex["reps"],
-            rest_time=ex["rest_time"]
-        ))
-    session.commit()
-    st.success(f"Routine '{routine.name}' updated!")
-    st.session_state.trigger_rerun = True
-
-# ----------------------
-# Handle rerun trigger safely
-# ----------------------
-if st.session_state.get("trigger_rerun"):
-    st.session_state.trigger_rerun = False
-    st.experimental_rerun()
+    if all_exercises:
+        new_ex_id = session.query(Exercise).filter_by(name=new_ex_name).first().id
+        st.session_state.custom_routine.append({
+            "exercise_id": new_ex_id,
+            "exercise_name": new_ex_name,
+            "sets": new_sets,
+            "reps": new_reps,
+            "rest_time": new_rest
+        })
+        st.success(f"{new_ex_name} added!")
+        st.experimental_rerun()
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
