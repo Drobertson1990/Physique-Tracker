@@ -141,8 +141,6 @@ class RoutineExercise(Base):
 # CREATE TABLES
 # ----------------------
 Base.metadata.create_all(engine)
-# --- TEMP DATABASE RESET (REMOVE AFTER FIRST DEPLOY) ---
-Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
 # --------------------------------------------------------
 
