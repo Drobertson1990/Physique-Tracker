@@ -2,8 +2,18 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Float,
+    Date,
+    DateTime,
+    ForeignKey,
+)
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 import plotly.express as px
 from sqlalchemy import inspect, text
@@ -11,7 +21,7 @@ from sqlalchemy import inspect, text
 # ----------------------
 # DATABASE SETUP
 # ----------------------
-DB_PATH = "/tmp/tracker.db"  # Streamlit Cloud writable path
+DB_PATH = "tracker_v2.db"
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
@@ -19,14 +29,6 @@ session = Session()
 # ----------------------
 # Ensure rest_time column exists in Workouts table
 # ----------------------
-with engine.connect() as conn:
-    try:
-        # Attempt to add 'rest_time' column, default 60 seconds
-        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
-        conn.commit()
-    except Exception:
-        # If the column already exists, ignore the error
-        pass
 
 # ----------------------
 # DATABASE MODELS
@@ -72,19 +74,6 @@ class FoodItem(Base):
     carbs = Column(Float)
     fats = Column(Float)
 
-
-class Workout(Base):
-    __tablename__ = "workouts"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    exercise = Column(String)
-    sets = Column(Integer)
-    reps = Column(Integer)
-    weight = Column(Float)
-    rest_time = Column(Integer, default=60)
-    goal = Column(String, default="Hypertrophy")
-    date = Column(Date)
-
 class Bloodwork(Base):
     __tablename__ = "bloodwork"
     id = Column(Integer, primary_key=True)
@@ -121,6 +110,33 @@ class Exercise(Base):
 
     description = Column(String, default="")
     image_url = Column(String, default="")
+
+class WorkoutSession(Base):
+    __tablename__ = "workout_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    date = Column(DateTime, default=datetime.utcnow)
+    title = Column(String, default="Workout")
+
+    user = relationship("User")
+    exercises = relationship("WorkoutEntry", back_populates="session")
+
+
+class WorkoutEntry(Base):
+    __tablename__ = "workout_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("workout_sessions.id"))
+    exercise_id = Column(Integer, ForeignKey("exercises.id"))
+
+    sets = Column(Integer)
+    reps = Column(Integer)
+    weight = Column(Float)
+
+    session = relationship("WorkoutSession", back_populates="exercises")
+    exercise = relationship("Exercise")
+    
 class Routine(Base):
     __tablename__ = "routines"
     id = Column(Integer, primary_key=True)
@@ -140,7 +156,6 @@ class RoutineExercise(Base):
 # ----------------------
 # CREATE TABLES
 # ----------------------
-Base.metadata.create_all(engine)
 Base.metadata.create_all(engine)
 # --------------------------------------------------------
 
