@@ -326,8 +326,10 @@ def login_user(user):
 # Show login/register options only if NOT logged in
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email")
-    password_input = st.sidebar.text_input("Password", type="password")
+    email_input = st.sidebar.text_input("Email", key="email_input")
+password_input = st.sidebar.text_input("Password", type="password", key="password_input")
+st.sidebar.button("Login", key="login_btn")
+st.sidebar.button("Register", key="register_btn")
 
     if auth_mode == "Register" and st.sidebar.button("Register"):
         if email_input.strip() and password_input.strip():
@@ -356,10 +358,11 @@ else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
     st.session_state.page = st.sidebar.selectbox(
-        "Select Page",
-        pages,
-        index=pages.index(st.session_state.page)
-    )
+    "Select Page",
+    pages,
+    index=pages.index(st.session_state.page),
+    key="nav_select"
+)
     st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
 
     # Logout logic
@@ -471,7 +474,11 @@ if st.session_state.logged_in and page == "Dosing":
        
     # Add Custom option
     compound_options = list(compounds.keys()) + ["Custom"]
-    compound_choice = st.selectbox("Select Compound", compound_options)
+    compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
+amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
+date = st.date_input("Date", datetime.date.today(), key="dose_date")
+st.button("Save Dose", key="save_dose_btn")
+graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
 
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
@@ -565,7 +572,15 @@ if st.session_state.logged_in and page == "Meals":
     all_foods = {**default_foods, **user_food_dict}
     food_options = list(all_foods.keys()) + ["Add Custom Food"]
 
-    food_choice = st.selectbox("Select Food", food_options)
+    food_choice = st.selectbox("Select Food", food_options, key="food_choice")
+food_name = st.text_input("Food Name", key="custom_food_name")
+calories = st.number_input("Calories", min_value=0, key="food_calories")
+protein = st.number_input("Protein (g)", min_value=0, key="food_protein")
+carbs = st.number_input("Carbs (g)", min_value=0, key="food_carbs")
+fats = st.number_input("Fats (g)", min_value=0, key="food_fats")
+quantity = st.number_input("Quantity", min_value=1, value=1, key="food_quantity")
+date = st.date_input("Date", datetime.date.today(), key="meal_date")
+st.button("Log Meal", key="log_meal_btn")
 
     if food_choice == "Add Custom Food":
         food_name = st.text_input("Food Name")
@@ -686,7 +701,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     if not exercise_library:
         st.warning("No exercises available. Please add exercises first.")
         st.stop()
-    exercise = st.selectbox("Exercise", exercise_library)
+    exercise = st.selectbox("Exercise", exercise_library, key="workout_exercise")
 
     # ----------------------
     # Workout inputs
