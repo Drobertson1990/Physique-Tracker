@@ -16,17 +16,6 @@ engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread"
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
-# ----------------------
-# Ensure rest_time column exists in Workouts table
-# ----------------------
-with engine.connect() as conn:
-    try:
-        # Attempt to add 'rest_time' column, default 60 seconds
-        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
-        conn.commit()
-    except Exception:
-        # If the column already exists, ignore the error
-        pass
 
 # ----------------------
 # DATABASE MODELS
@@ -141,7 +130,16 @@ class RoutineExercise(Base):
 # CREATE TABLES
 # ----------------------
 Base.metadata.create_all(engine)
-Base.metadata.create_all(engine)
+# ----------------------
+# Ensure rest_time column exists in Workouts table
+# ----------------------
+inspector = inspect(engine)
+columns = [col["name"] for col in inspector.get_columns("workouts")]
+
+if "rest_time" not in columns:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60"))
+
 # --------------------------------------------------------
 
 # ----------------------
@@ -285,9 +283,9 @@ columns = [col['name'] for col in inspector.get_columns('exercises')]
 
 with engine.begin() as conn:
     if 'equipment' not in columns:
-        conn.execute(text("ALTER TABLE exercises ADD COLUMN equipment STRING DEFAULT ''"))
+        conn.execute(text("ALTER TABLE exercises ADD COLUMN equipment TEXT DEFAULT ''"))
     if 'secondary_muscles' not in columns:
-        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles STRING DEFAULT ''"))
+       conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
         
 # ----------------------
 # SESSION STATE INIT
@@ -326,13 +324,16 @@ def login_user(user):
 # Show login/register options only if NOT logged in
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email", key="email_input")
-    password_input = st.sidebar.text_input("Password", type="password", key="password_input")
-    st.sidebar.button("Login", key="login_btn")
-    st.sidebar.button("Register", key="register_btn")
+    email_input = st.sidebar.text_input("Email")
+    password_input = st.sidebar.text_input("Password", type="password")
 
-    if auth_mode == "Register" and st.sidebar.button("Register"):
-        if email_input.strip() and password_input.strip():
+    if st.sidebar.button(auth_mode):
+
+        if not email_input.strip() or not password_input.strip():
+            st.sidebar.error("Enter email and password")
+            st.stop()
+
+        if auth_mode == "Register":
             existing = session.query(User).filter_by(email=email_input).first()
             if existing:
                 st.sidebar.error("User already exists")
@@ -342,16 +343,14 @@ if not st.session_state.logged_in:
                 session.add(new_user)
                 session.commit()
                 st.sidebar.success("User registered! You can now log in.")
-        else:
-            st.sidebar.error("Enter email and password")
 
-    if auth_mode == "Login" and st.sidebar.button("Login"):
-        user = session.query(User).filter_by(email=email_input).first()
-        if user and user.check_password(password_input):
-            login_user(user)
-            st.experimental_rerun()  # Safe rerun AFTER session state updates
-        else:
-            st.sidebar.error("Invalid credentials")
+        if auth_mode == "Login":
+            user = session.query(User).filter_by(email=email_input).first()
+            if user and user.check_password(password_input):
+                login_user(user)
+                st.rerun()
+            else:
+                st.sidebar.error("Invalid credentials")
 
 # Show navigation menu if logged in
 else:
@@ -372,7 +371,7 @@ else:
         st.session_state.user_email = ""
         st.session_state.page = "Dosing"
         st.success("Logged out successfully")
-        st.experimental_rerun()
+        st.rerun()
 # ----------------------
 # PAGE LOGIC
 # ----------------------
@@ -503,10 +502,6 @@ if st.session_state.logged_in and page == "Dosing":
     st.write(f"**Primary Purpose:** {compound_info['Primary Purpose']}")
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
-    # Dose input
-    amount = st.number_input("Amount (mg)", min_value=0.0)
-    date = st.date_input("Date", datetime.date.today())
-
     if st.button("Save Dose"):
         if compound_name.strip() == "" or amount <= 0:
             st.error("Please enter a valid compound and amount")
@@ -594,9 +589,6 @@ if st.session_state.logged_in and page == "Meals":
         protein = all_foods[food_choice]["Protein"]
         carbs = all_foods[food_choice]["Carbs"]
         fats = all_foods[food_choice]["Fats"]
-
-    quantity = st.number_input("Quantity", min_value=1, value=1)
-    date = st.date_input("Date", datetime.date.today())
 
     if st.button("Log Meal"):
         if food_name.strip() == "" or calories <= 0:
