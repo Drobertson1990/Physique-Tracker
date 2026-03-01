@@ -694,15 +694,44 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
     st.header("Log Workout")
 
-    # ----------------------
-    # Exercise selection
-    # ----------------------
-    exercise_library = [ex.name for ex in session.query(Exercise).all()]
-    if not exercise_library:
-        st.warning("No exercises available. Please add exercises first.")
-        st.stop()
-    exercise = st.selectbox("Exercise", exercise_library, key="workout_exercise")
+   # ----------------------
+# Exercise selection with Muscle Filter
+# ----------------------
 
+all_exercises = session.query(Exercise).all()
+
+if not all_exercises:
+    st.warning("No exercises available. Please add exercises first.")
+    st.stop()
+
+# Get unique muscle groups
+muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
+
+selected_muscle = st.selectbox(
+    "Filter by Muscle Group",
+    ["All"] + muscle_groups,
+    key="muscle_filter"
+)
+
+# Apply filter
+if selected_muscle == "All":
+    filtered_exercises = all_exercises
+else:
+    filtered_exercises = [
+        ex for ex in all_exercises if ex.muscle_group == selected_muscle
+    ]
+
+exercise_library = [ex.name for ex in filtered_exercises]
+
+if not exercise_library:
+    st.warning("No exercises found for this muscle group.")
+    st.stop()
+
+exercise = st.selectbox(
+    "Exercise",
+    exercise_library,
+    key="workout_exercise"
+)
     # ----------------------
     # Workout inputs
     # ----------------------
