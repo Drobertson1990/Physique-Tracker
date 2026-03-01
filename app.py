@@ -798,22 +798,22 @@ rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
 goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
 date = st.date_input("Date", datetime.date.today())
 
-    # ----------------------
-    # Save workout
-    # ----------------------
-    if st.button("Save Workout"):
-        session.add(Workout(
-            user_id=user_id,
-            exercise=exercise,
-            sets=int(sets),
-            reps=int(reps),
-            weight=float(weight),
-            rest_time=int(rest_time),
-            goal=goal,
-            date=date
-        ))
-        session.commit()
-        st.success("Workout saved!")
+# ----------------------
+# Save workout
+# ----------------------
+if st.button("Save Workout"):
+    session.add(Workout(
+    user_id=user_id,
+    exercise=exercise,
+    sets=int(sets),
+    reps=int(reps),
+    weight=float(weight),
+    rest_time=int(rest_time),
+    goal=goal,
+    date=date
+))
+    session.commit()
+    st.success("Workout saved!")
 
     # ----------------------
     # Display workout summary
