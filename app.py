@@ -573,14 +573,14 @@ if st.session_state.logged_in and page == "Meals":
     food_options = list(all_foods.keys()) + ["Add Custom Food"]
 
     food_choice = st.selectbox("Select Food", food_options, key="food_choice")
-food_name = st.text_input("Food Name", key="custom_food_name")
-calories = st.number_input("Calories", min_value=0, key="food_calories")
-protein = st.number_input("Protein (g)", min_value=0, key="food_protein")
-carbs = st.number_input("Carbs (g)", min_value=0, key="food_carbs")
-fats = st.number_input("Fats (g)", min_value=0, key="food_fats")
-quantity = st.number_input("Quantity", min_value=1, value=1, key="food_quantity")
-date = st.date_input("Date", datetime.date.today(), key="meal_date")
-st.button("Log Meal", key="log_meal_btn")
+    food_name = st.text_input("Food Name", key="custom_food_name")
+    calories = st.number_input("Calories", min_value=0, key="food_calories")
+    protein = st.number_input("Protein (g)", min_value=0, key="food_protein")
+    carbs = st.number_input("Carbs (g)", min_value=0, key="food_carbs")
+    fats = st.number_input("Fats (g)", min_value=0, key="food_fats")
+    quantity = st.number_input("Quantity", min_value=1, value=1, key="food_quantity")
+    date = st.date_input("Date", datetime.date.today(), key="meal_date")
+    st.button("Log Meal", key="log_meal_btn")
 
     if food_choice == "Add Custom Food":
         food_name = st.text_input("Food Name")
