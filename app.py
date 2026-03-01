@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
 import plotly.express as px
+from sqlalchemy import text
 
 # ----------------------
 # DATABASE SETUP
@@ -15,6 +16,17 @@ engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread"
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 session = Session()
+# ----------------------
+# Ensure rest_time column exists in Workouts table
+# ----------------------
+with engine.connect() as conn:
+    try:
+        # Attempt to add 'rest_time' column, default 60 seconds
+        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+        conn.commit()
+    except Exception:
+        # If the column already exists, ignore the error
+        pass
 
 # ----------------------
 # DATABASE MODELS
@@ -499,25 +511,36 @@ if st.session_state.logged_in and page == "Meals":
     # ----------------------
 # WORKOUT PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Workouts":
+if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
     exercise = st.text_input("Exercise")
-    sets = st.number_input("Sets", min_value=1, value=1)
-    reps = st.number_input("Reps", min_value=1, value=1)
-    weight = st.number_input("Weight", min_value=0.0, value=0.0)
+    sets = st.number_input("Sets", 1)
+    reps = st.number_input("Reps", 1)
+    weight = st.number_input("Weight", 0.0)
+    rest_time = st.number_input("Rest Time (seconds)", 60)
     date = st.date_input("Date", datetime.date.today())
 
     if st.button("Save Workout"):
-        session.add(Workout(user_id=user_id, exercise=exercise, sets=sets, reps=reps, weight=weight, date=date))
+        session.add(
+            Workout(
+                user_id=user_id,
+                exercise=exercise,
+                sets=sets,
+                reps=reps,
+                weight=weight,
+                rest_time=rest_time,
+                date=date
+            )
+        )
         session.commit()
         st.success("Workout saved!")
 
-    # Display weekly volume
+    # Display summary (optional)
     workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
     if not workouts.empty:
         workouts["volume"] = workouts["sets"] * workouts["reps"] * workouts["weight"]
         workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
-        summary = workouts.groupby(["week", "exercise"])["volume"].sum().reset_index()
+        summary = workouts.groupby(["week","exercise"])["volume"].sum().reset_index()
         fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
         st.plotly_chart(fig)
 
