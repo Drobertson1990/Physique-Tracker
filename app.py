@@ -400,12 +400,12 @@ if st.session_state.logged_in and page == "Dashboard":
 # ----------------------
 # DOSING PAGE
 # ----------------------
-if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing":
+if st.session_state.logged_in and page == "Dosing":
     st.header("💉 Dosing Tracker")
 
     user_id = st.session_state.get("user_id")
     if not user_id:
-        st.info("Please log in to view this page.")
+        st.info("Please log in to use the Dosing Tracker.")
         st.stop()
 
     # ----------------------
@@ -475,11 +475,16 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
     }
 
     # ----------------------
-    # Compound Selection
+    # Select Compound
     # ----------------------
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
 
+    # Dose Inputs
+    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
+    date = st.date_input("Date", datetime.date.today(), key="dose_date")
+
+    # Compound Info
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
         category = st.text_input("Category")
@@ -496,21 +501,13 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         compound_name = compound_choice
         compound_info = compounds[compound_choice]
 
-    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
-    date = st.date_input("Date", datetime.date.today(), key="dose_date")
-
-    # ----------------------
-    # Display compound info
-    # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
     st.write(f"**Subclass:** {compound_info['Subclass']}")
     st.write(f"**Primary Purpose:** {compound_info['Primary Purpose']}")
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
-    # ----------------------
     # Save Dose
-    # ----------------------
     if st.button("Save Dose", key="save_dose_btn"):
         if compound_name.strip() == "" or amount <= 0:
             st.error("Please enter a valid compound and amount")
@@ -519,10 +516,8 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
             session.commit()
             st.success("Dose saved!")
 
-    st.markdown("---")
-
     # ----------------------
-    # Fetch and process doses
+    # Fetch Doses
     # ----------------------
     doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
@@ -530,63 +525,48 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
     )
 
     if not doses.empty:
-        doses["date"] = pd.to_datetime(doses["date"])  # Ensure datetime
+        # Ensure 'date' column is datetime
+        doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
+    else:
+        st.info("No doses logged yet.")
 
-        # ----------------------
-        # Weekly Compound Summary Cards
-        # ----------------------
-        st.subheader("📦 Weekly Compound Summary")
-        last_week = doses[doses["date"] >= (pd.Timestamp.today() - pd.Timedelta(days=7))]
-        compounds_weekly = last_week.groupby("compound")["amount"].sum().reset_index()
-        for _, row in compounds_weekly.iterrows():
-            st.metric(label=row["compound"], value=f"{row['amount']} mg (last 7d)")
+    # ----------------------
+    # Weekly Compound Summary Cards
+    # ----------------------
+    if not doses.empty:
+        st.subheader("📋 Weekly Compound Summary")
+        weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
+        for _, row in weekly_summary.iterrows():
+            st.info(f"Week {row['week']}: {row['compound']} – {row['amount']} mg")
 
-        # ----------------------
-        # Active Cycle Tracker
-        # ----------------------
-        st.subheader("⏱ Active Cycle Tracker")
-        if not doses.empty:
-            cycle_start = doses["date"].min()
-            cycle_end = doses["date"].max()
-            duration_days = (cycle_end - cycle_start).days + 1
-            st.info(f"Active cycle: {duration_days} days ({cycle_start.date()} → {cycle_end.date()})")
+    # ----------------------
+    # Active Cycle Tracker
+    # ----------------------
+    if not doses.empty:
+        st.subheader("🟢 Active Cycles")
+        seven_days_ago = pd.Timestamp.today() - pd.Timedelta(days=7)
+        active_compounds = doses[doses["date"] >= seven_days_ago]
+        if active_compounds.empty:
+            st.info("No active compounds in the past 7 days")
+        else:
+            for c in active_compounds["compound"].unique():
+                st.success(f"{c} active in last 7 days")
 
-        # ----------------------
-        # Visual Stack Timeline
-        # ----------------------
-        st.subheader("📊 Visual Stack Timeline")
-        doses_summary = doses.groupby(["date","compound"])["amount"].sum().reset_index()
+    # ----------------------
+    # Visual Stack Timeline
+    # ----------------------
+    if not doses.empty:
+        st.subheader("📊 Compound Stack Timeline")
+        timeline_summary = doses.groupby(["date","compound"])["amount"].sum().reset_index()
         fig_stack = px.bar(
-            doses_summary,
+            timeline_summary,
             x="date",
             y="amount",
             color="compound",
-            title="Stack Timeline",
-            labels={"amount":"Dose (mg)"},
-            height=400
+            title="Compound Stack Over Time"
         )
         st.plotly_chart(fig_stack, use_container_width=True)
-
-    else:
-        st.info("No doses logged yet.")
-# ----------------------
-# Active Cycle Tracker
-# ----------------------
-st.subheader("🟢 Active Cycles")
-
-# Ensure 'date' column is datetime
-doses["date"] = pd.to_datetime(doses["date"])
-
-# Filter last 7 days
-seven_days_ago = pd.Timestamp.today() - pd.Timedelta(days=7)
-active_compounds = doses[doses["date"] >= seven_days_ago]
-
-if active_compounds.empty:
-    st.info("No active compounds in the past 7 days")
-else:
-    for c in active_compounds["compound"].unique():
-        st.success(f"{c} active in last 7 days")
         
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
