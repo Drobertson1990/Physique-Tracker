@@ -698,22 +698,22 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 # Exercise selection with Muscle Filter
 # ----------------------
 
-all_exercises = session.query(Exercise).all()
+    all_exercises = session.query(Exercise).all()
 
 if not all_exercises:
     st.warning("No exercises available. Please add exercises first.")
     st.stop()
 
-# Get unique muscle groups
-muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
+    # Get unique muscle groups
+    muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
 
-selected_muscle = st.selectbox(
+    selected_muscle = st.selectbox(
     "Filter by Muscle Group",
     ["All"] + muscle_groups,
     key="muscle_filter"
 )
 
-# Apply filter
+    # Apply filter
 if selected_muscle == "All":
     filtered_exercises = all_exercises
 else:
