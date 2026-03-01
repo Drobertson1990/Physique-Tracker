@@ -398,7 +398,7 @@ if st.session_state.logged_in and page == "Dashboard":
     col3.metric("Workouts Logged", len(workouts))
 
 # ----------------------
-# DOSING PAGE
+# DOSING PAGE WITH DASHBOARD CARDS & GRAPH OPTIONS
 # ----------------------
 if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing":
     st.header("💉 Dosing Tracker")
@@ -485,17 +485,13 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         st.session_state.custom_compounds = {}
 
     # ----------------------
-    # 3️⃣ Compound Selection
+    # 3️⃣ Compound Selection & Dose Entry
     # ----------------------
     compound_options = list(preloaded_compounds.keys()) + list(st.session_state.custom_compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
-
     amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
     dose_date = st.date_input("Date", datetime.date.today(), key="dose_date")
 
-    # ----------------------
-    # 4️⃣ Handle Custom Compound Input
-    # ----------------------
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
         category = st.text_input("Category")
@@ -510,13 +506,10 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         }
     else:
         compound_name = compound_choice
-        if compound_choice in preloaded_compounds:
-            compound_info = preloaded_compounds[compound_choice]
-        else:
-            compound_info = st.session_state.custom_compounds[compound_choice]
+        compound_info = preloaded_compounds.get(compound_choice) or st.session_state.custom_compounds.get(compound_choice)
 
     # ----------------------
-    # 5️⃣ Display Compound Info
+    # 4️⃣ Display Compound Info
     # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
@@ -525,7 +518,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
     # ----------------------
-    # 6️⃣ Save Dose
+    # 5️⃣ Save Dose
     # ----------------------
     if st.button("Save Dose"):
         if not compound_name or amount <= 0:
@@ -541,27 +534,33 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
             st.experimental_rerun()
 
     # ----------------------
-    # 7️⃣ Fetch Doses
+    # 6️⃣ Fetch Doses
     # ----------------------
     doses = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if not doses.empty:
+    if doses.empty:
+        st.info("No doses logged yet.")
+    else:
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
 
         # ----------------------
-        # Weekly Compound Summary Cards
+        # 7️⃣ Weekly Compound Summary Cards (Dashboard)
         # ----------------------
-        st.subheader("📅 Weekly Compound Summary")
-        weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
-        for _, row in weekly_summary.iterrows():
-            st.metric(label=f"{row['compound']} (Week {row['week']})", value=f"{row['amount']} mg")
+        st.subheader("📅 Weekly Compound Dashboard")
+        weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index()
+
+        for compound in weekly_summary["compound"].unique():
+            comp_data = weekly_summary[weekly_summary["compound"] == compound]
+            total_amount = comp_data["amount"].sum()
+            last_week = comp_data["week"].max()
+            st.metric(label=f"{compound} (Last Week {last_week})", value=f"{total_amount} mg")
 
         # ----------------------
-        # Active Cycle Tracker (last 7 days)
+        # 8️⃣ Active Cycle Tracker (last 7 days)
         # ----------------------
         st.subheader("🟢 Active Cycles (Last 7 Days)")
         cutoff = pd.Timestamp.today() - pd.Timedelta(days=7)
@@ -573,19 +572,40 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
                 st.success(f"{c} active in last 7 days")
 
         # ----------------------
-        # Visual Stack Timeline
+        # 9️⃣ Graph Type Selector
+        # ----------------------
+        graph_type = st.selectbox("Select Graph Type", ["Bar", "Line", "Area"], key="graph_type")
+
+        # ----------------------
+        # 🔟 Visual Stack Timeline
         # ----------------------
         st.subheader("📊 Visual Stack Timeline")
-        fig_stack = px.bar(
-            doses.sort_values("date"),
-            x="date",
-            y="amount",
-            color="compound",
-            title="Compound Stack Timeline"
-        )
+        if graph_type == "Bar":
+            fig_stack = px.bar(
+                doses.sort_values("date"),
+                x="date",
+                y="amount",
+                color="compound",
+                title="Compound Stack Timeline"
+            )
+        elif graph_type == "Line":
+            fig_stack = px.line(
+                doses.sort_values("date"),
+                x="date",
+                y="amount",
+                color="compound",
+                title="Compound Stack Timeline"
+            )
+        else:  # Area
+            fig_stack = px.area(
+                doses.sort_values("date"),
+                x="date",
+                y="amount",
+                color="compound",
+                title="Compound Stack Timeline"
+            )
+
         st.plotly_chart(fig_stack, use_container_width=True)
-    else:
-        st.info("No doses logged yet.")
         
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
