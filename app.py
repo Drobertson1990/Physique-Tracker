@@ -397,12 +397,17 @@ if st.session_state.logged_in and page == "Dashboard":
     col2.metric("Meals Logged", len(meals))
     col3.metric("Workouts Logged", len(workouts))
 
-    # ----------------------
-    # DOSING PAGE
-    # ----------------------
-if st.session_state.logged_in and page == "Dosing":
-    st.header("Dosing Tracker Page")
-    st.info("Add your dosing logic here")
+# ----------------------
+# DOSING PAGE - Enhanced Dashboard
+# ----------------------
+if st.session_state.get("logged_in") and page == "Dosing":
+    st.set_page_config(layout="wide")
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        st.info("Please log in to view this page.")
+        st.stop()
+
+    st.header("💉 Dosing Tracker")
 
     # ----------------------
     # Prepopulated compounds with detailed info
@@ -471,13 +476,20 @@ if st.session_state.logged_in and page == "Dosing":
     "Methyltestosterone": {"Category":"AAS","Subclass":"Oral Testosterone","Primary Purpose":"Androgenic boost","Typical Goal":"Strength"}
 }
        
-    # Add Custom option
+    # ----------------------
+    # Prepopulated compounds
+    # ----------------------
+    compounds = {
+        # Keep all compounds from your original code here...
+    }
+
+    # ----------------------
+    # Dose Input
+    # ----------------------
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
     amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
     date = st.date_input("Date", datetime.date.today(), key="dose_date")
-    st.button("Save Dose", key="save_dose_btn")
-    graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
 
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
@@ -495,14 +507,13 @@ if st.session_state.logged_in and page == "Dosing":
         compound_name = compound_choice
         compound_info = compounds[compound_choice]
 
-    # Display info
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
     st.write(f"**Subclass:** {compound_info['Subclass']}")
     st.write(f"**Primary Purpose:** {compound_info['Primary Purpose']}")
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
-    if st.button("Save Dose"):
+    if st.button("Save Dose", key="save_dose_btn"):
         if compound_name.strip() == "" or amount <= 0:
             st.error("Please enter a valid compound and amount")
         else:
@@ -510,32 +521,106 @@ if st.session_state.logged_in and page == "Dosing":
             session.commit()
             st.success("Dose saved!")
 
-    # ----------------------
-    # Graph Style Selector
-    # ----------------------
-    graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"])
+    st.markdown("---")
 
-    # Fetch doses
-    doses = pd.read_sql(
+    # ----------------------
+    # Fetch doses for charts
+    # ----------------------
+    doses_df = pd.read_sql(
         session.query(Dose).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if doses.empty:
+    if doses_df.empty:
         st.info("No doses logged yet.")
+        st.stop()
+
+    doses_df["date"] = pd.to_datetime(doses_df["date"])
+    doses_df["week"] = doses_df["date"].dt.isocalendar().week
+
+    # ----------------------
+    # 1️⃣ Weekly Compound Summary Cards (Fancy)
+    # ----------------------
+    st.subheader("📅 Weekly Compound Summary")
+    latest_week = doses_df["week"].max()
+    weekly_summary = doses_df[doses_df["week"] == latest_week].groupby("compound")["amount"].sum().reset_index()
+    compounds_list = weekly_summary["compound"].tolist()
+
+    # Create colorful cards using st.columns and HTML
+    num_cols = min(len(compounds_list), 4)
+    cols = st.columns(num_cols)
+
+    card_colors = ["#ff6f61","#6fa8dc","#ffd966","#93c47d"]  # alternate colors
+
+    for idx, compound in enumerate(compounds_list):
+        total = weekly_summary[weekly_summary["compound"] == compound]["amount"].sum()
+        with cols[idx % num_cols]:
+            st.markdown(f"""
+                <div style='
+                    background-color:{card_colors[idx % len(card_colors)]};
+                    padding:20px;
+                    border-radius:15px;
+                    text-align:center;
+                    color:white;
+                    font-weight:bold;
+                    box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+                '>
+                    <div style='font-size:18px;'>Week {latest_week}</div>
+                    <div style='font-size:22px; margin-top:5px;'>{compound}</div>
+                    <div style='font-size:28px; margin-top:10px;'>{total} mg</div>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # ----------------------
+    # 2️⃣ Active Cycle Tracker
+    # ----------------------
+    st.markdown("---")
+    st.subheader("⚡ Active Cycles")
+    today = pd.Timestamp.today().normalize()
+    active_cycles_df = doses_df[(doses_df["start_date"] <= today) & (doses_df["end_date"] >= today)] if "start_date" in doses_df.columns and "end_date" in doses_df.columns else pd.DataFrame()
+
+    if active_cycles_df.empty:
+        st.info("No active cycles at the moment.")
     else:
-        if "amount" in doses.columns and "compound" in doses.columns and "date" in doses.columns:
-            doses["week"] = pd.to_datetime(doses["date"]).dt.isocalendar().week
-            summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
-            if graph_type == "Bar":
-                fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-            elif graph_type == "Line":
-                fig = px.line(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-            else:
-                fig = px.area(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
-            st.plotly_chart(fig)
-        else:
-            st.error("Dose table missing expected columns.")
+        for idx, row in active_cycles_df.drop_duplicates("cycle_name").iterrows():
+            st.markdown(f"**{row['cycle_name']}**")
+            st.write(f"Start: {row['start_date'].date()} | End: {row['end_date'].date()}")
+            compounds_in_cycle = doses_df[doses_df['cycle_name'] == row['cycle_name']]['compound'].unique()
+            st.write(f"Compounds: {', '.join(compounds_in_cycle)}")
+
+    # ----------------------
+    # 3️⃣ Visual Stack Timeline
+    # ----------------------
+    st.markdown("---")
+    st.subheader("📊 Stack Timeline")
+    timeline_df = doses_df[["date","compound","amount"]].sort_values("date")
+    fig_timeline = px.line(
+        timeline_df,
+        x="date",
+        y="amount",
+        color="compound",
+        markers=True,
+        title="Compound Stack Over Time"
+    )
+    st.plotly_chart(fig_timeline, use_container_width=True)
+
+    # ----------------------
+    # Weekly Dose Totals Graph
+    # ----------------------
+    st.markdown("---")
+    st.subheader("📈 Weekly Dose Totals")
+    graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
+    summary = doses_df.groupby(["week","compound"])["amount"].sum().reset_index()
+
+    if graph_type == "Bar":
+        fig = px.bar(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
+    elif graph_type == "Line":
+        fig = px.line(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
+    else:
+        fig = px.area(summary, x="week", y="amount", color="compound", title="Weekly Dose Totals")
+
+    st.plotly_chart(fig, use_container_width=True)
+    
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
