@@ -475,10 +475,10 @@ if st.session_state.logged_in and page == "Dosing":
     # Add Custom option
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
-amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
-date = st.date_input("Date", datetime.date.today(), key="dose_date")
-st.button("Save Dose", key="save_dose_btn")
-graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
+    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
+    date = st.date_input("Date", datetime.date.today(), key="dose_date")
+    st.button("Save Dose", key="save_dose_btn")
+    graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
 
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
