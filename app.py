@@ -702,14 +702,27 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         st.warning("No exercises available. Please add exercises first.")
         st.stop()
 
-    # ----------------------
-    # Muscle Filter (Multi-select)
-    # ----------------------
-    col1, col2 = st.columns(2)
-    with col1:
-        muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
-        selected_muscles = st.multiselect("Filter by Muscle Group", muscle_groups, key="muscle_filter_multi")
+# ----------------------
+# Muscle Filter (Multi-select)
+# ----------------------
+col1, col2 = st.columns(2)
+with col1:
+    # Safely get muscle groups, ignoring exercises without the attribute or None values
+    muscle_groups = sorted(
+        list(
+            set(
+                getattr(ex, "muscle_group", None)
+                for ex in all_exercises
+                if getattr(ex, "muscle_group", None)
+            )
+        )
+    )
 
+    selected_muscles = st.multiselect(
+        "Filter by Muscle Group",
+        muscle_groups,
+        key="muscle_filter_multi"
+    )
     # ----------------------
     # Filtered Exercise Selection
     # ----------------------
