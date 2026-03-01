@@ -679,37 +679,38 @@ if st.session_state.logged_in and page == "Meals":
 # ----------------------
 if st.session_state.get("logged_in") and st.session_state.get("page") == "Workouts":
 
+    st.set_page_config(layout="wide")
+
     user_id = st.session_state.get("user_id")
     if not user_id:
         st.info("Please log in to view this page.")
         st.stop()
 
-    st.header("Log Workout")
+    st.header("💪 Log Workout")
 
     # ----------------------
-    # Load all exercises
+    # Load Exercises
     # ----------------------
     all_exercises = session.query(Exercise).all()
     if not all_exercises:
         st.warning("No exercises available.")
         st.stop()
 
-    # ----------------------
-    # Muscle Filter (using category, not muscle_group)
-    # ----------------------
     col1, col2 = st.columns(2)
 
+    # ----------------------
+    # Muscle Filter
+    # ----------------------
     with col1:
         muscle_groups = sorted(list(set(ex.category for ex in all_exercises if ex.category)))
 
         selected_muscles = st.multiselect(
             "Filter by Muscle Group",
-            muscle_groups,
-            key="muscle_filter_multi"
+            muscle_groups
         )
 
     # ----------------------
-    # Filtered Exercise Selection
+    # Exercise Selection
     # ----------------------
     with col2:
         if selected_muscles:
@@ -727,8 +728,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
         selected_exercise_display = st.selectbox(
             "Exercise",
-            exercise_options,
-            key="workout_exercise"
+            exercise_options
         )
 
         exercise = selected_exercise_display.split(" (")[0]
@@ -736,12 +736,22 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     # ----------------------
     # Workout Inputs
     # ----------------------
-    sets = st.number_input("Sets", min_value=1, value=1, step=1)
-    reps = st.number_input("Reps", min_value=1, value=1, step=1)
-    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5)
-    rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
-    goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
-    date = st.date_input("Date", datetime.date.today())
+    col3, col4, col5 = st.columns(3)
+
+    with col3:
+        sets = st.number_input("Sets", min_value=1, value=1, step=1)
+        reps = st.number_input("Reps", min_value=1, value=1, step=1)
+
+    with col4:
+        weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5)
+        rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
+
+    with col5:
+        goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+        date = st.date_input("Date", datetime.date.today())
+
+    volume = sets * reps * weight
+    st.markdown(f"**Session Volume:** {volume:.1f}")
 
     # ----------------------
     # Save Workout
@@ -759,51 +769,107 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
         ))
         session.commit()
         st.success("Workout saved!")
+        st.rerun()
+
+    st.markdown("---")
 
     # ----------------------
-    # Display Summary
+    # Load User Workouts
     # ----------------------
     workouts_df = pd.read_sql(
         session.query(Workout).filter_by(user_id=user_id).statement,
         engine
     )
 
-    if not workouts_df.empty:
-        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
-        workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
-
-        weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
-
-        fig = px.bar(
-            weekly_summary,
-            x="week",
-            y="volume",
-            color="exercise",
-            title="Weekly Workout Volume"
-        )
-        st.plotly_chart(fig)
-    else:
+    if workouts_df.empty:
         st.info("No workouts logged yet.")
+        st.stop()
+
+    workouts_df["date"] = pd.to_datetime(workouts_df["date"])
+    workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
+    workouts_df["week"] = workouts_df["date"].dt.isocalendar().week
 
     # ----------------------
-    # Routine selection
+    # 1️⃣ VOLUME PR TRACKER
     # ----------------------
+    st.subheader("🏆 Volume Personal Records")
+
+    pr_df = (
+        workouts_df
+        .groupby("exercise")["volume"]
+        .max()
+        .reset_index()
+        .sort_values("volume", ascending=False)
+    )
+
+    st.dataframe(pr_df, use_container_width=True)
+
+    # ----------------------
+    # 2️⃣ STRENGTH PROGRESSION
+    # ----------------------
+    st.subheader("📈 Strength Progression")
+
+    exercise_list = workouts_df["exercise"].unique()
+    selected_ex = st.selectbox("Select Exercise to Track", exercise_list)
+
+    filtered = workouts_df[workouts_df["exercise"] == selected_ex]
+
+    fig_progress = px.line(
+        filtered.sort_values("date"),
+        x="date",
+        y="weight",
+        markers=True,
+        title=f"{selected_ex} Weight Progression"
+    )
+
+    st.plotly_chart(fig_progress, use_container_width=True)
+
+    # ----------------------
+    # 3️⃣ WEEKLY VOLUME SUMMARY
+    # ----------------------
+    st.subheader("📊 Weekly Volume")
+
+    weekly_summary = (
+        workouts_df
+        .groupby(["week", "exercise"])["volume"]
+        .sum()
+        .reset_index()
+    )
+
+    fig_weekly = px.bar(
+        weekly_summary,
+        x="week",
+        y="volume",
+        color="exercise",
+        title="Weekly Workout Volume"
+    )
+
+    st.plotly_chart(fig_weekly, use_container_width=True)
+
+    st.markdown("---")
+
+    # ----------------------
+    # ROUTINE SELECTION
+    # ----------------------
+    st.subheader("🛠 Routine")
+
     routines = session.query(Routine).all()
     routine_names = [r.name for r in routines] if routines else []
+
     selected_routine_name = st.selectbox(
         "Select Routine",
-        ["Custom"] + routine_names,
-        key="workout_routine_select"
+        ["Custom"] + routine_names
     )
 
     if selected_routine_name != "Custom" and routine_names:
         routine = session.query(Routine).filter_by(name=selected_routine_name).first()
         routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
-        st.subheader(f"Routine: {routine.name} ({routine.goal})")
+
+        st.write(f"### {routine.name} ({routine.goal})")
 
         for re in routine_exercises:
             ex = session.query(Exercise).get(re.exercise_id)
-            st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
+            st.write(f"**{ex.name}** — {re.sets}x{re.reps}, Rest {re.rest_time}s")
   
 # ----------------------
 # BLOODWORK PAGE
