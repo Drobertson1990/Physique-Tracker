@@ -723,23 +723,27 @@ with col1:
         muscle_groups,
         key="muscle_filter_multi"
     )
-    # ----------------------
-    # Filtered Exercise Selection
-    # ----------------------
-    with col2:
-        if selected_muscles:
-            filtered_exercises = [ex for ex in all_exercises if ex.muscle_group in selected_muscles]
-        else:
-            filtered_exercises = all_exercises
-
-        exercise_options = [
-            f"{ex.name} ({ex.muscle_group})" if ex.muscle_group else ex.name
-            for ex in filtered_exercises
+# ----------------------
+# Filtered Exercise Selection
+# ----------------------
+with col2:
+    if selected_muscles:
+        filtered_exercises = [
+            ex for ex in all_exercises 
+            if getattr(ex, "muscle_group", None) in selected_muscles
         ]
-        selected_exercise_display = st.selectbox("Exercise", exercise_options, key="workout_exercise")
+    else:
+        filtered_exercises = all_exercises
 
-        # Extract actual exercise name
-        exercise = selected_exercise_display.split(" (")[0]
+    exercise_options = [
+        f"{ex.name} ({ex.muscle_group})" if getattr(ex, "muscle_group", None) else ex.name
+        for ex in filtered_exercises
+    ]
+
+    selected_exercise_display = st.selectbox("Exercise", exercise_options, key="workout_exercise")
+
+    # Extract actual exercise name
+    exercise = selected_exercise_display.split(" (")[0]
 
     # ----------------------
     # Workout inputs
