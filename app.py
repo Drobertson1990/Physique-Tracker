@@ -90,17 +90,19 @@ Base.metadata.create_all(engine)
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "user_email" not in st.session_state:
-    st.session_state.user_email = ""
-if "page" not in st.session_state:
-    st.session_state.page = "Meals"
+for key in ["logged_in", "user_id", "user_email", "page"]:
+    if key not in st.session_state:
+        if key == "logged_in":
+            st.session_state[key] = False
+        elif key == "user_id":
+            st.session_state[key] = None
+        elif key == "user_email":
+            st.session_state[key] = ""
+        elif key == "page":
+            st.session_state[key] = "Dosing"
 
 # ----------------------
-# AUTH & NAVIGATION
+# AUTHENTICATION & NAVIGATION
 # ----------------------
 st.sidebar.title("User Authentication")
 
@@ -123,25 +125,21 @@ if not st.session_state.logged_in:
         else:
             st.sidebar.error("Enter email and password")
 
-    if auth_mode == "Login":
-        login_clicked = st.sidebar.button("Login")
-        if login_clicked:
-            user = session.query(User).filter_by(email=email_input).first()
-            if user and user.check_password(password_input):
-                st.session_state.logged_in = True
-                st.session_state.user_id = user.id
-                st.session_state.user_email = user.email
-                st.session_state.page = "Dosing"  # default page
-                st.experimental_rerun()  # safe now
-            else:
-                st.sidebar.error("Invalid credentials")
+    login_clicked = st.sidebar.button("Login")
+    if auth_mode == "Login" and login_clicked:
+        user = session.query(User).filter_by(email=email_input).first()
+        if user and user.check_password(password_input):
+            st.session_state.logged_in = True
+            st.session_state.user_id = user.id
+            st.session_state.user_email = user.email
+            st.session_state.page = "Dosing"  # default page
+            st.experimental_rerun()  # safe now
+        else:
+            st.sidebar.error("Invalid credentials")
 
 else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
-
-    if st.session_state.page not in pages:
-        st.session_state.page = "Dosing"
 
     st.session_state.page = st.sidebar.selectbox(
         "Select Page",
@@ -162,45 +160,8 @@ else:
 # ----------------------
 # PAGE LOGIC
 # ----------------------
-user_id = st.session_state.get("user_id")
-page = st.session_state.get("page")
-
-# ----------------------
-# DOSING PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Dosing":
-    st.header("Dosing Tracker Page")
-    # Add your prepopulated compounds dictionary and dose logging here
-
-# ----------------------
-# MEALS PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Meals":
-    st.header("Meals & Calorie Tracker")
-    # Add your Meals page code here
-
-# ----------------------
-# WORKOUT PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Workouts":
-    st.header("Log Workout")
-    # Add your Workouts page code here
-
-# ----------------------
-# BLOODWORK PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Bloodwork":
-    st.header("Log Bloodwork")
-    # Add your Bloodwork page code here
-
-# ----------------------
-# PHOTOS PAGE
-# ----------------------
-if st.session_state.get("logged_in") and page == "Photos":
-    st.header("Progress Photos")
-    if not os.path.exists("photos"):
-        os.makedirs("photos")
-    # Add your Photos page code here
+user_id = st.session_state.user_id
+page = st.session_state.page
 
 # ----------------------
 # DASHBOARD PAGE
@@ -241,8 +202,8 @@ if st.session_state.get("logged_in") and page == "Dashboard":
     # ----------------------
     # DOSING PAGE
     # ----------------------
-if st.session_state.get("logged_in") and page == "Dosing":
-    st.header("Dosing Tracker Page")
+if st.session_state.logged_in and page == "Dosing":
+    st.header("Dosing Tracker")
 
     # ----------------------
     # Prepopulated compounds with detailed info
@@ -379,7 +340,7 @@ if st.session_state.get("logged_in") and page == "Dosing":
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
-if st.session_state.get("logged_in") and page == "Meals":
+if st.session_state.logged_in and page == "Meals":
     st.header("Meals & Calorie Tracker")
     user_id = st.session_state.user_id
 
@@ -511,7 +472,7 @@ if st.session_state.get("logged_in") and page == "Meals":
     # ----------------------
     # WORKOUTS PAGE
     # ----------------------
-if st.session_state.get("logged_in") and page == "Workouts":
+if st.session_state.logged_in and page == "Workouts":
     st.header("Log Workout")
     exercise = st.text_input("Exercise")
     sets = st.number_input("Sets", min_value=1)
@@ -520,17 +481,11 @@ if st.session_state.get("logged_in") and page == "Workouts":
     date = st.date_input("Date", datetime.date.today())
 
     if st.button("Save Workout"):
-        session.add(Workout(
-            user_id=user_id,
-            exercise=exercise,
-            sets=sets,
-            reps=reps,
-            weight=weight,
-            date=date
-        ))
+        session.add(Workout(user_id=user_id, exercise=exercise, sets=sets, reps=reps, weight=weight, date=date))
         session.commit()
         st.success("Workout saved!")
 
+    # Show summary
     workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
     if not workouts.empty:
         workouts["volume"] = workouts["sets"] * workouts["reps"] * workouts["weight"]
@@ -538,10 +493,11 @@ if st.session_state.get("logged_in") and page == "Workouts":
         summary = workouts.groupby(["week", "exercise"])["volume"].sum().reset_index()
         fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
         st.plotly_chart(fig)
+        
     # ----------------------
     # BLOODWORK PAGE
     # ----------------------
-if st.session_state.get("logged_in") and page == "Bloodwork":
+if st.session_state.logged_in and page == "Bloodwork":
     st.header("Log Bloodwork")
     test = st.text_input("Test Name")
     value = st.number_input("Value", min_value=0.0)
@@ -556,16 +512,16 @@ if st.session_state.get("logged_in") and page == "Bloodwork":
     if not blood.empty:
         fig = px.line(blood, x="date", y="value", color="test", title="Bloodwork Trends")
         st.plotly_chart(fig)
-
+        
     # ----------------------
     # PHOTOS PAGE
     # ----------------------
-if st.session_state.get("logged_in") and page == "Photos":
+if st.session_state.logged_in and page == "Photos":
     st.header("Progress Photos")
     if not os.path.exists("photos"):
         os.makedirs("photos")
 
-    uploaded = st.file_uploader("Upload Photo", type=["jpg", "png"])
+    uploaded = st.file_uploader("Upload Photo", type=["jpg","png"])
     date = st.date_input("Date", datetime.date.today())
 
     if uploaded and st.button("Save Photo"):
