@@ -81,7 +81,8 @@ class Workout(Base):
     sets = Column(Integer)
     reps = Column(Integer)
     weight = Column(Float)
-    rest_time = Column(Integer, default=60)  # Add this line
+    rest_time = Column(Integer, default=60)
+    goal = Column(String, default="Hypertrophy")
     date = Column(Date)
 
 class Bloodwork(Base):
@@ -132,16 +133,14 @@ class RoutineExercise(Base):
 # ----------------------
 Base.metadata.create_all(engine)
 
-# Inspect current columns in the workouts table
 inspector = inspect(engine)
 columns = [col['name'] for col in inspector.get_columns('workouts')]
 
-if 'rest_time' not in columns:
-    with engine.connect() as conn:
+with engine.begin() as conn:  # proper 2.x connection context
+    if 'rest_time' not in columns:
         conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
-        conn.commit()
-if 'goal' not in columns:
-    engine.execute(text("ALTER TABLE workouts ADD COLUMN goal STRING DEFAULT 'Hypertrophy'"))
+    if 'goal' not in columns:
+        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal STRING DEFAULT 'Hypertrophy'"))
 
 # ----------------------
 # SESSION STATE INIT
@@ -563,27 +562,27 @@ if st.session_state.get("logged_in") and page == "Workouts":
     # Exercise selection
     exercise = st.selectbox("Exercise", exercise_library)
     
-    sets = st.number_input("Sets", 1, 20, 3)
-    reps = st.number_input("Reps", 1, 50, 8)
-    weight = st.number_input("Weight (kg/lb)", 0.0)
-    rest_time = st.number_input("Rest Time (seconds)", 0, 600, 60)
-    goal = st.selectbox("Workout Goal", ["Strength", "Hypertrophy", "Endurance"])
-    date = st.date_input("Date", datetime.date.today())
+exercise = st.text_input("Exercise")
+sets = st.number_input("Sets", 1)
+reps = st.number_input("Reps", 1)
+weight = st.number_input("Weight", 0.0)
+rest_time = st.number_input("Rest (seconds)", 60)
+goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+date = st.date_input("Date", datetime.date.today())
 
-    if st.button("Save Workout"):
-        session.add(Workout(
-            user_id=st.session_state.user_id,
-            exercise=exercise,
-            sets=sets,
-            reps=reps,
-            weight=weight,
-            rest_time=rest_time,
-            goal=goal,
-            date=date
-        ))
-        session.commit()
-        st.success("Workout saved!")
-
+   if st.button("Save Workout"):
+    session.add(Workout(
+        user_id=user_id,
+        exercise=exercise,
+        sets=sets,
+        reps=reps,
+        weight=weight,
+        rest_time=rest_time,
+        goal=goal,
+        date=date
+    ))
+    session.commit()
+    st.success("Workout saved!")
 # ----------------------
 # ROUTINES SELECTION
 # ----------------------
