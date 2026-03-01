@@ -134,16 +134,21 @@ class RoutineExercise(Base):
 Base.metadata.create_all(engine)
 
 # ----------------------
-# Ensure rest_time and goal columns exist (SQLite-safe)
+# ENSURE WORKOUTS TABLE COLUMNS EXIST
 # ----------------------
+from sqlalchemy import inspect, text
+
 inspector = inspect(engine)
 columns = [col['name'] for col in inspector.get_columns('workouts')]
 
-with engine.begin() as conn:
+with engine.begin() as conn:  # proper 2.x connection context
+    # Add 'rest_time' if missing
     if 'rest_time' not in columns:
         conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+    # Add 'goal' if missing
     if 'goal' not in columns:
-        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal TEXT DEFAULT 'Hypertrophy'"))
+        conn.execute(text("ALTER TABLE workouts ADD COLUMN goal TEXT DEFAULT 'Hypertrophy'"))\
+        
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
@@ -556,7 +561,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
             engine
         )
     except Exception:
-        st.error("Unable to load workouts. Ensure the database is initialized correctly.")
+        st.error("Unable to load workouts. Make sure the database is initialized correctly.")
         st.stop()
 
     if not workouts_df.empty:
