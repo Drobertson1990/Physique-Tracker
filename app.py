@@ -721,13 +721,13 @@ else:
         ex for ex in all_exercises if ex.muscle_group == selected_muscle
     ]
 
-exercise_library = [ex.name for ex in filtered_exercises]
+    exercise_library = [ex.name for ex in filtered_exercises]
 
 if not exercise_library:
     st.warning("No exercises found for this muscle group.")
     st.stop()
 
-exercise = st.selectbox(
+    exercise = st.selectbox(
     "Exercise",
     exercise_library,
     key="workout_exercise"
