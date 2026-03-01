@@ -475,16 +475,39 @@ if st.session_state.logged_in and page == "Dosing":
     }
 
     # ----------------------
-    # Select Compound
+    # Load saved custom compounds from DB or session state
     # ----------------------
-    compound_options = list(compounds.keys()) + ["Custom"]
+    if "custom_compounds" not in st.session_state:
+        # Try loading from database
+        try:
+            saved_custom = pd.read_sql(
+                session.query(CustomCompound).filter_by(user_id=user_id).statement,
+                engine
+            )
+            st.session_state.custom_compounds = {
+                row["name"]: {
+                    "Category": row["category"],
+                    "Subclass": row["subclass"],
+                    "Primary Purpose": row["primary_purpose"],
+                    "Typical Goal": row["typical_goal"]
+                } for _, row in saved_custom.iterrows()
+            }
+        except Exception:
+            st.session_state.custom_compounds = {}
+
+    # Merge preloaded + user custom compounds
+    compound_options = list(preloaded_compounds.keys()) + list(st.session_state.custom_compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
 
+    # ----------------------
     # Dose Inputs
+    # ----------------------
     amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
     date = st.date_input("Date", datetime.date.today(), key="dose_date")
 
-    # Compound Info
+    # ----------------------
+    # Determine compound info
+    # ----------------------
     if compound_choice == "Custom":
         compound_name = st.text_input("Enter Custom Compound Name")
         category = st.text_input("Category")
@@ -497,24 +520,52 @@ if st.session_state.logged_in and page == "Dosing":
             "Primary Purpose": primary_purpose,
             "Typical Goal": typical_goal
         }
+    elif compound_choice in st.session_state.custom_compounds:
+        compound_name = compound_choice
+        compound_info = st.session_state.custom_compounds[compound_choice]
     else:
         compound_name = compound_choice
-        compound_info = compounds[compound_choice]
+        compound_info = preloaded_compounds[compound_choice]
 
+    # ----------------------
+    # Display Compound Info
+    # ----------------------
     st.subheader("Compound Info")
     st.write(f"**Category:** {compound_info['Category']}")
     st.write(f"**Subclass:** {compound_info['Subclass']}")
     st.write(f"**Primary Purpose:** {compound_info['Primary Purpose']}")
     st.write(f"**Typical Goal:** {compound_info['Typical Goal']}")
 
+    # ----------------------
     # Save Dose
+    # ----------------------
     if st.button("Save Dose", key="save_dose_btn"):
         if compound_name.strip() == "" or amount <= 0:
             st.error("Please enter a valid compound and amount")
         else:
+            # Save dose
             session.add(Dose(user_id=user_id, compound=compound_name, amount=amount, date=date))
             session.commit()
             st.success("Dose saved!")
+
+            # If custom compound, save to session state + DB
+            if compound_choice == "Custom" and compound_name.strip() != "":
+                st.session_state.custom_compounds[compound_name] = compound_info
+                # Save to DB if you have a CustomCompound table
+                try:
+                    session.add(CustomCompound(
+                        user_id=user_id,
+                        name=compound_name,
+                        category=compound_info["Category"],
+                        subclass=compound_info["Subclass"],
+                        primary_purpose=compound_info["Primary Purpose"],
+                        typical_goal=compound_info["Typical Goal"]
+                    ))
+                    session.commit()
+                except Exception:
+                    st.warning("Could not save custom compound to database (check table)")
+
+            st.experimental_rerun()
 
     # ----------------------
     # Fetch Doses
@@ -525,25 +576,20 @@ if st.session_state.logged_in and page == "Dosing":
     )
 
     if not doses.empty:
-        # Ensure 'date' column is datetime
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
-    else:
-        st.info("No doses logged yet.")
 
-    # ----------------------
-    # Weekly Compound Summary Cards
-    # ----------------------
-    if not doses.empty:
+        # ----------------------
+        # Weekly Compound Summary Cards
+        # ----------------------
         st.subheader("📋 Weekly Compound Summary")
         weekly_summary = doses.groupby(["week","compound"])["amount"].sum().reset_index()
         for _, row in weekly_summary.iterrows():
             st.info(f"Week {row['week']}: {row['compound']} – {row['amount']} mg")
 
-    # ----------------------
-    # Active Cycle Tracker
-    # ----------------------
-    if not doses.empty:
+        # ----------------------
+        # Active Cycle Tracker
+        # ----------------------
         st.subheader("🟢 Active Cycles")
         seven_days_ago = pd.Timestamp.today() - pd.Timedelta(days=7)
         active_compounds = doses[doses["date"] >= seven_days_ago]
@@ -553,10 +599,9 @@ if st.session_state.logged_in and page == "Dosing":
             for c in active_compounds["compound"].unique():
                 st.success(f"{c} active in last 7 days")
 
-    # ----------------------
-    # Visual Stack Timeline
-    # ----------------------
-    if not doses.empty:
+        # ----------------------
+        # Visual Stack Timeline
+        # ----------------------
         st.subheader("📊 Compound Stack Timeline")
         timeline_summary = doses.groupby(["date","compound"])["amount"].sum().reset_index()
         fig_stack = px.bar(
@@ -567,6 +612,8 @@ if st.session_state.logged_in and page == "Dosing":
             title="Compound Stack Over Time"
         )
         st.plotly_chart(fig_stack, use_container_width=True)
+    else:
+        st.info("No doses logged yet.")
         
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
