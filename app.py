@@ -239,7 +239,7 @@ if st.session_state.get("logged_in") and page == "Dashboard":
     # ----------------------
     # DOSING PAGE
     # ----------------------
-if st.session_state.logged_in and page == "Dosing":
+if st.session_state.get("logged_in") and page == "Dosing":
     st.header("Dosing Tracker Page")
 
     # ----------------------
@@ -377,7 +377,7 @@ if st.session_state.logged_in and page == "Dosing":
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Meals":
+if st.session_state.get("logged_in") and page == "Meals":
     st.header("Meals & Calorie Tracker")
     user_id = st.session_state.user_id
 
@@ -509,7 +509,7 @@ if st.session_state.logged_in and page == "Meals":
     # ----------------------
     # WORKOUTS PAGE
     # ----------------------
-   if st.session_state.logged_in and page == "Workouts":
+if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
         exercise = st.text_input("Exercise")
         sets = st.number_input("Sets",1)
@@ -534,7 +534,7 @@ if st.session_state.logged_in and page == "Meals":
     # ----------------------
     # BLOODWORK PAGE
     # ----------------------
-   if st.session_state.logged_in and page == "Bloodwork":
+ if st.session_state.get("logged_in") and page == "Bloodwork":
     st.header("Log Bloodwork")
         test = st.text_input("Test Name")
         value = st.number_input("Value",0.0)
@@ -553,10 +553,10 @@ if st.session_state.logged_in and page == "Meals":
     # ----------------------
     # PHOTOS PAGE
     # ----------------------
-    if st.session_state.logged_in and page == "Photos":
+    if st.session_state.get("logged_in") and page == "Photos":
     st.header("Progress Photos")
-        if not os.path.exists("photos"):
-            os.makedirs("photos")
+    if not os.path.exists("photos"):
+        os.makedirs("photos")
 
         uploaded = st.file_uploader("Upload Photo", type=["jpg","png"])
         date = st.date_input("Date", datetime.date.today())
