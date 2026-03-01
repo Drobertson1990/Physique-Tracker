@@ -275,7 +275,6 @@ if st.session_state.logged_in and st.session_state.page == "Dashboard":
     # ----------------------
 if st.session_state.logged_in and page == "Dosing":
     st.header("Dosing Tracker Page")
-        st.header("Dosing Tracker Page")
 
     # ----------------------
     # Prepopulated compounds with detailed info
