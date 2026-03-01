@@ -763,7 +763,11 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
     # ----------------------
     routines = session.query(Routine).all()
     routine_names = [r.name for r in routines] if routines else []
-    selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
+    selected_routine_name = st.selectbox(
+    "Select Routine",
+    ["Custom"] + routine_names,
+    key="workout_routine_select"
+)
 
     if selected_routine_name != "Custom" and routine_names:
         routine = session.query(Routine).filter_by(name=selected_routine_name).first()
