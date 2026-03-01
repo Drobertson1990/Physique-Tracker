@@ -694,44 +694,99 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
     st.header("Log Workout")
 
-   # ----------------------
-# Exercise selection with Muscle Filter
+# ----------------------
+# ADVANCED Exercise Selection
 # ----------------------
 
-    all_exercises = session.query(Exercise).all()
+all_exercises = session.query(Exercise).all()
 
 if not all_exercises:
     st.warning("No exercises available. Please add exercises first.")
     st.stop()
 
-    # Get unique muscle groups
-    muscle_groups = sorted(list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group])))
+st.subheader("Exercise Filters")
 
-    selected_muscle = st.selectbox(
-    "Filter by Muscle Group",
-    ["All"] + muscle_groups,
-    key="muscle_filter"
-)
+col1, col2 = st.columns(2)
 
-    # Apply filter
-if selected_muscle == "All":
-    filtered_exercises = all_exercises
-else:
+# ----------------------
+# Muscle Filter (Multi-select)
+# ----------------------
+with col1:
+    muscle_groups = sorted(
+        list(set([ex.muscle_group for ex in all_exercises if ex.muscle_group]))
+    )
+
+    selected_muscles = st.multiselect(
+        "Filter by Muscle Group",
+        muscle_groups,
+        key="muscle_filter_multi"
+    )
+
+# ----------------------
+# Equipment Filter
+# ----------------------
+with col2:
+    equipment_types = sorted(
+        list(set([ex.equipment for ex in all_exercises if ex.equipment]))
+    )
+
+    selected_equipment = st.multiselect(
+        "Filter by Equipment",
+        equipment_types,
+        key="equipment_filter_multi"
+    )
+
+# ----------------------
+# Search Bar
+# ----------------------
+search_query = st.text_input(
+    "Search Exercise",
+    key="exercise_search"
+).lower()
+
+# ----------------------
+# Apply Filters
+# ----------------------
+filtered_exercises = all_exercises
+
+if selected_muscles:
     filtered_exercises = [
-        ex for ex in all_exercises if ex.muscle_group == selected_muscle
+        ex for ex in filtered_exercises
+        if ex.muscle_group in selected_muscles
     ]
 
-    exercise_library = [ex.name for ex in filtered_exercises]
+if selected_equipment:
+    filtered_exercises = [
+        ex for ex in filtered_exercises
+        if ex.equipment in selected_equipment
+    ]
 
-if not exercise_library:
-    st.warning("No exercises found for this muscle group.")
+if search_query:
+    filtered_exercises = [
+        ex for ex in filtered_exercises
+        if search_query in ex.name.lower()
+    ]
+
+if not filtered_exercises:
+    st.warning("No exercises match your filters.")
     st.stop()
 
-    exercise = st.selectbox(
-    "Exercise",
-    exercise_library,
-    key="workout_exercise"
+# ----------------------
+# Display Exercise Options (with details)
+# ----------------------
+exercise_options = [
+    f"{ex.name} ({ex.muscle_group} | {ex.equipment})"
+    for ex in filtered_exercises
+]
+
+selected_exercise_display = st.selectbox(
+    "Select Exercise",
+    exercise_options,
+    key="workout_exercise_select"
 )
+
+# Extract actual exercise name
+exercise = selected_exercise_display.split(" (")[0]
     # ----------------------
     # Workout inputs
     # ----------------------
