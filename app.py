@@ -786,17 +786,17 @@ selected_exercise_display = st.selectbox(
 )
 
 # Extract actual exercise name
-    exercise = selected_exercise_display.split(" (")[0]
+exercise = selected_exercise_display.split(" (")[0]
 
-    # ----------------------
-    # Workout inputs
-    # ----------------------
-    sets = st.number_input("Sets", min_value=1, value=1, step=1)
-    reps = st.number_input("Reps", min_value=1, value=1, step=1)
-    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
-    rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
-    goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
-    date = st.date_input("Date", datetime.date.today())
+# ----------------------
+# Workout inputs
+# ----------------------
+sets = st.number_input("Sets", min_value=1, value=1, step=1)
+reps = st.number_input("Reps", min_value=1, value=1, step=1)
+weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
+goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
+date = st.date_input("Date", datetime.date.today())
 
     # ----------------------
     # Save workout
