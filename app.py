@@ -511,64 +511,69 @@ if st.session_state.get("logged_in") and page == "Meals":
     # ----------------------
 if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
-        exercise = st.text_input("Exercise")
-        sets = st.number_input("Sets",1)
-        reps = st.number_input("Reps",1)
-        weight = st.number_input("Weight",0.0)
-        date = st.date_input("Date", datetime.date.today())
+    exercise = st.text_input("Exercise")
+    sets = st.number_input("Sets", min_value=1)
+    reps = st.number_input("Reps", min_value=1)
+    weight = st.number_input("Weight", min_value=0.0)
+    date = st.date_input("Date", datetime.date.today())
 
-        if st.button("Save Workout"):
-            session.add(Workout(user_id=user_id,exercise=exercise,
-                                sets=sets,reps=reps,weight=weight,date=date))
-            session.commit()
-            st.success("Workout saved!")
+    if st.button("Save Workout"):
+        session.add(Workout(
+            user_id=user_id,
+            exercise=exercise,
+            sets=sets,
+            reps=reps,
+            weight=weight,
+            date=date
+        ))
+        session.commit()
+        st.success("Workout saved!")
 
-        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
-        if not workouts.empty:
-            workouts["volume"] = workouts["sets"]*workouts["reps"]*workouts["weight"]
-            workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
-            summary = workouts.groupby(["week","exercise"])["volume"].sum().reset_index()
-            fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
-            st.plotly_chart(fig)
-
+    workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
+    if not workouts.empty:
+        workouts["volume"] = workouts["sets"] * workouts["reps"] * workouts["weight"]
+        workouts["week"] = pd.to_datetime(workouts["date"]).dt.isocalendar().week
+        summary = workouts.groupby(["week", "exercise"])["volume"].sum().reset_index()
+        fig = px.bar(summary, x="week", y="volume", color="exercise", title="Weekly Workout Volume")
+        st.plotly_chart(fig)
     # ----------------------
     # BLOODWORK PAGE
     # ----------------------
- if st.session_state.get("logged_in") and page == "Bloodwork":
+if st.session_state.get("logged_in") and page == "Bloodwork":
     st.header("Log Bloodwork")
-        test = st.text_input("Test Name")
-        value = st.number_input("Value",0.0)
-        date = st.date_input("Date", datetime.date.today())
+    test = st.text_input("Test Name")
+    value = st.number_input("Value", min_value=0.0)
+    date = st.date_input("Date", datetime.date.today())
 
-        if st.button("Save Bloodwork"):
-            session.add(Bloodwork(user_id=user_id,test=test,value=value,date=date))
-            session.commit()
-            st.success("Bloodwork saved!")
+    if st.button("Save Bloodwork"):
+        session.add(Bloodwork(user_id=user_id, test=test, value=value, date=date))
+        session.commit()
+        st.success("Bloodwork saved!")
 
-        blood = pd.read_sql(session.query(Bloodwork).filter_by(user_id=user_id).statement, engine)
-        if not blood.empty:
-            fig = px.line(blood, x="date", y="value", color="test", title="Bloodwork Trends")
-            st.plotly_chart(fig)
+    blood = pd.read_sql(session.query(Bloodwork).filter_by(user_id=user_id).statement, engine)
+    if not blood.empty:
+        fig = px.line(blood, x="date", y="value", color="test", title="Bloodwork Trends")
+        st.plotly_chart(fig)
 
     # ----------------------
     # PHOTOS PAGE
     # ----------------------
-    if st.session_state.get("logged_in") and page == "Photos":
+if st.session_state.get("logged_in") and page == "Photos":
     st.header("Progress Photos")
     if not os.path.exists("photos"):
         os.makedirs("photos")
 
-        uploaded = st.file_uploader("Upload Photo", type=["jpg","png"])
-        date = st.date_input("Date", datetime.date.today())
+    uploaded = st.file_uploader("Upload Photo", type=["jpg", "png"])
+    date = st.date_input("Date", datetime.date.today())
 
-        if uploaded and st.button("Save Photo"):
-            path = f"photos/{user_id}_{date}_{uploaded.name}"
-            with open(path,"wb") as f:
-                f.write(uploaded.getbuffer())
-            session.add(Photo(user_id=user_id,path=path,date=date))
-            session.commit()
-            st.success("Photo saved!")
+    if uploaded and st.button("Save Photo"):
+        path = f"photos/{user_id}_{date}_{uploaded.name}"
+        with open(path, "wb") as f:
+            f.write(uploaded.getbuffer())
+        session.add(Photo(user_id=user_id, path=path, date=date))
+        session.commit()
+        st.success("Photo saved!")
 
-        photos = session.query(Photo).filter_by(user_id=user_id).all()
-        for p in photos:
-            st.image(p.path, caption=str(p.date))
+    photos = session.query(Photo).filter_by(user_id=user_id).all()
+    for p in photos:
+        st.image(p.path, caption=str(p.date))
