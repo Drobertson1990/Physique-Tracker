@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
 import plotly.express as px
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 # ----------------------
 # DATABASE SETUP
@@ -81,8 +81,7 @@ class Workout(Base):
     sets = Column(Integer)
     reps = Column(Integer)
     weight = Column(Float)
-    rest_time = Column(Integer)  # in seconds
-    goal = Column(String)        # Strength / Hypertrophy / Endurance
+    rest_time = Column(Integer, default=60)  # Add this line
     date = Column(Date)
 
 class Bloodwork(Base):
@@ -135,11 +134,12 @@ Base.metadata.create_all(engine)
 
 # Inspect current columns in the workouts table
 inspector = inspect(engine)
-columns = [c['name'] for c in inspector.get_columns('workouts')]
+columns = [col['name'] for col in inspector.get_columns('workouts')]
 
-# Add missing columns safely
 if 'rest_time' not in columns:
-    engine.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+    with engine.connect() as conn:
+        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+        conn.commit()
 if 'goal' not in columns:
     engine.execute(text("ALTER TABLE workouts ADD COLUMN goal STRING DEFAULT 'Hypertrophy'"))
 
@@ -516,23 +516,21 @@ if st.session_state.get("logged_in") and page == "Workouts":
     sets = st.number_input("Sets", 1)
     reps = st.number_input("Reps", 1)
     weight = st.number_input("Weight", 0.0)
-    rest_time = st.number_input("Rest Time (seconds)", 60)
+    rest_time = st.number_input("Rest (seconds)", 60)
     date = st.date_input("Date", datetime.date.today())
 
-    if st.button("Save Workout"):
-        session.add(
-            Workout(
-                user_id=user_id,
-                exercise=exercise,
-                sets=sets,
-                reps=reps,
-                weight=weight,
-                rest_time=rest_time,
-                date=date
-            )
-        )
-        session.commit()
-        st.success("Workout saved!")
+if st.button("Save Workout"):
+    session.add(Workout(
+        user_id=user_id,
+        exercise=exercise,
+        sets=sets,
+        reps=reps,
+        weight=weight,
+        rest_time=rest_time,  # <- Save it
+        date=date
+    ))
+    session.commit()
+    st.success("Workout saved!")
 
     # Display summary (optional)
     workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
