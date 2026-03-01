@@ -1,20 +1,9 @@
 import streamlit as st
-st.write("APP STARTING")
 import pandas as pd
 import datetime
 import os
-from sqlalchemy import (
-    create_engine,
-    Column,
-    Integer,
-    String,
-    Float,
-    Date,
-    DateTime,
-    ForeignKey,
-)
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
-from datetime import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date
+from sqlalchemy.orm import sessionmaker, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
 import plotly.express as px
 from sqlalchemy import inspect, text
@@ -22,7 +11,7 @@ from sqlalchemy import inspect, text
 # ----------------------
 # DATABASE SETUP
 # ----------------------
-DB_PATH = "tracker.db"
+DB_PATH = "/tmp/tracker.db"  # Streamlit Cloud writable path
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
@@ -30,6 +19,14 @@ session = Session()
 # ----------------------
 # Ensure rest_time column exists in Workouts table
 # ----------------------
+with engine.connect() as conn:
+    try:
+        # Attempt to add 'rest_time' column, default 60 seconds
+        conn.execute(text('ALTER TABLE workouts ADD COLUMN rest_time INTEGER DEFAULT 60'))
+        conn.commit()
+    except Exception:
+        # If the column already exists, ignore the error
+        pass
 
 # ----------------------
 # DATABASE MODELS
@@ -75,6 +72,19 @@ class FoodItem(Base):
     carbs = Column(Float)
     fats = Column(Float)
 
+
+class Workout(Base):
+    __tablename__ = "workouts"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    exercise = Column(String)
+    sets = Column(Integer)
+    reps = Column(Integer)
+    weight = Column(Float)
+    rest_time = Column(Integer, default=60)
+    goal = Column(String, default="Hypertrophy")
+    date = Column(Date)
+
 class Bloodwork(Base):
     __tablename__ = "bloodwork"
     id = Column(Integer, primary_key=True)
@@ -111,33 +121,6 @@ class Exercise(Base):
 
     description = Column(String, default="")
     image_url = Column(String, default="")
-
-class WorkoutSession(Base):
-    __tablename__ = "workout_sessions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    date = Column(DateTime, default=datetime.utcnow)
-    title = Column(String, default="Workout")
-
-    user = relationship("User")
-    exercises = relationship("WorkoutEntry", back_populates="session")
-
-
-class WorkoutEntry(Base):
-    __tablename__ = "workout_entries"
-
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("workout_sessions.id"))
-    exercise_id = Column(Integer, ForeignKey("exercises.id"))
-
-    sets = Column(Integer)
-    reps = Column(Integer)
-    weight = Column(Float)
-
-    session = relationship("WorkoutSession", back_populates="exercises")
-    exercise = relationship("Exercise")
-    
 class Routine(Base):
     __tablename__ = "routines"
     id = Column(Integer, primary_key=True)
@@ -157,6 +140,7 @@ class RoutineExercise(Base):
 # ----------------------
 # CREATE TABLES
 # ----------------------
+Base.metadata.create_all(engine)
 Base.metadata.create_all(engine)
 # --------------------------------------------------------
 
@@ -401,23 +385,18 @@ page = st.session_state.page
 # ----------------------
 if st.session_state.logged_in and page == "Dashboard":
     st.header("Dashboard Overview")
-
-    doses = pd.read_sql(
-        session.query(Dose).filter_by(user_id=user_id).statement,
-        engine
-    )
-
-    meals = pd.read_sql(
-        session.query(MealLog).filter_by(user_id=user_id).statement,
-        engine
-    )
-
-    sessions = session.query(WorkoutSession).filter_by(user_id=user_id).all()
+    try:
+        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
+        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
+        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
+    except Exception as e:
+        st.error(f"Database read error: {e}")
+        st.stop()
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Doses Logged", len(doses))
     col2.metric("Meals Logged", len(meals))
-    col3.metric("Workouts Logged", len(sessions))
+    col3.metric("Workouts Logged", len(workouts))
 
     # ----------------------
     # DOSING PAGE
@@ -496,6 +475,8 @@ if st.session_state.logged_in and page == "Dosing":
     # Add Custom option
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
+    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
+    date = st.date_input("Date", datetime.date.today(), key="dose_date")
     st.button("Save Dose", key="save_dose_btn")
     graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
 
@@ -724,18 +705,18 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 # ----------------------
 # Muscle Filter (Multi-select)
 # ----------------------
-    col1, col2 = st.columns(2)
-    with col1:
-        # Safely get muscle groups, ignoring exercises without the attribute or None values
-        muscle_groups = sorted(
-            list(
-                set(
-                    getattr(ex, "muscle_group", None)
-                    for ex in all_exercises
-                    if getattr(ex, "muscle_group", None)
-                )    
+col1, col2 = st.columns(2)
+with col1:
+    # Safely get muscle groups, ignoring exercises without the attribute or None values
+    muscle_groups = sorted(
+        list(
+            set(
+                getattr(ex, "muscle_group", None)
+                for ex in all_exercises
+                if getattr(ex, "muscle_group", None)
             )
-        )    
+        )
+    )
 
     selected_muscles = st.multiselect(
         "Filter by Muscle Group",
@@ -777,71 +758,48 @@ with col2:
     # ----------------------
     # Save workout
     # ----------------------
-
     if st.button("Save Workout"):
-
-    # Create new workout session for this date
-    new_session = WorkoutSession(
-        user_id=user_id,
-        date=date,
-        title="Workout"
-    )
-    session.add(new_session)
-    session.commit()
-
-    # Get selected exercise object
-    selected_exercise_obj = session.query(Exercise).filter_by(name=exercise).first()
-
-    # Add workout entry
-    entry = WorkoutEntry(
-        session_id=new_session.id,
-        exercise_id=selected_exercise_obj.id,
-        sets=int(sets),
-        reps=int(reps),
-        weight=float(weight)
-    )
-
-    session.add(entry)
-    session.commit()
-
-    st.success("Workout saved successfully!")
+        session.add(Workout(
+            user_id=user_id,
+            exercise=exercise,
+            sets=int(sets),
+            reps=int(reps),
+            weight=float(weight),
+            rest_time=int(rest_time),
+            goal=goal,
+            date=date
+        ))
+        session.commit()
+        st.success("Workout saved!")
 
     # ----------------------
     # Display workout summary
     # ----------------------
+    try:
+        workouts_df = pd.read_sql(
+            session.query(Workout).filter_by(user_id=user_id).statement,
+            engine
+        )
+    except Exception:
+        st.error("Unable to load workouts. Check database setup.")
+        st.stop()
 
-    sessions = session.query(WorkoutSession).filter_by(user_id=user_id).all()
+    if not workouts_df.empty:
+        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
+        workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
 
-if sessions:
-    data = []
-
-    for s in sessions:
-        for entry in s.exercises:
-            volume = entry.sets * entry.reps * entry.weight
-            data.append({
-                "date": s.date,
-                "exercise": entry.exercise.name,
-                "volume": volume
-            })
-
-    df = pd.DataFrame(data)
-
-    if not df.empty:
-        df["week"] = pd.to_datetime(df["date"]).dt.isocalendar().week
-        weekly = df.groupby(["week", "exercise"])["volume"].sum().reset_index()
-
+        weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
         fig = px.bar(
-            weekly,
+            weekly_summary,
             x="week",
             y="volume",
             color="exercise",
             title="Weekly Workout Volume"
         )
-
         st.plotly_chart(fig)
-else:
-    st.info("No workouts logged yet.")
-    
+    else:
+        st.info("No workouts logged yet.")
+
     # ----------------------
     # Routine selection
     # ----------------------
