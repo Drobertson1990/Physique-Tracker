@@ -104,7 +104,6 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
-# --- NOT LOGGED IN ---
 if not st.session_state.get("logged_in", False):
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
@@ -131,11 +130,10 @@ if not st.session_state.get("logged_in", False):
             st.session_state.user_id = user.id
             st.session_state.user_email = user.email
             st.session_state.page = "Dosing"  # default page
-            st.experimental_rerun()  # only call rerun after login
+            st.experimental_rerun()
         else:
             st.sidebar.error("Invalid credentials")
 
-# --- LOGGED IN ---
 else:
     st.sidebar.title("Navigation")
     pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
@@ -170,28 +168,28 @@ page = st.session_state.get("page")
 # ----------------------
 if st.session_state.get("logged_in") and page == "Dosing":
     st.header("Dosing Tracker Page")
-    # Your prepopulated compounds + dose logging here
+    # Add your prepopulated compounds dictionary and dose logging here
 
 # ----------------------
 # MEALS PAGE
 # ----------------------
 if st.session_state.get("logged_in") and page == "Meals":
     st.header("Meals & Calorie Tracker")
-    # Your meals page code here
+    # Add your Meals page code here
 
 # ----------------------
 # WORKOUT PAGE
 # ----------------------
 if st.session_state.get("logged_in") and page == "Workouts":
     st.header("Log Workout")
-    # Your workouts page code here
+    # Add your Workouts page code here
 
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
 if st.session_state.get("logged_in") and page == "Bloodwork":
     st.header("Log Bloodwork")
-    # Your bloodwork page code here
+    # Add your Bloodwork page code here
 
 # ----------------------
 # PHOTOS PAGE
@@ -200,7 +198,7 @@ if st.session_state.get("logged_in") and page == "Photos":
     st.header("Progress Photos")
     if not os.path.exists("photos"):
         os.makedirs("photos")
-    # Your photos page code here
+    # Add your Photos page code here
 
 # ----------------------
 # DASHBOARD PAGE
