@@ -720,18 +720,18 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 # ----------------------
 # Muscle Filter (Multi-select)
 # ----------------------
-col1, col2 = st.columns(2)
-with col1:
-    # Safely get muscle groups, ignoring exercises without the attribute or None values
-    muscle_groups = sorted(
-        list(
-            set(
-                getattr(ex, "muscle_group", None)
-                for ex in all_exercises
-                if getattr(ex, "muscle_group", None)
+    col1, col2 = st.columns(2)
+    with col1:
+        # Safely get muscle groups, ignoring exercises without the attribute or None values
+        muscle_groups = sorted(
+            list(
+                set(
+                    getattr(ex, "muscle_group", None)
+                    for ex in all_exercises
+                    if getattr(ex, "muscle_group", None)
+                )    
             )
-        )
-    )
+        )    
 
     selected_muscles = st.multiselect(
         "Filter by Muscle Group",
@@ -773,48 +773,71 @@ with col2:
     # ----------------------
     # Save workout
     # ----------------------
+
     if st.button("Save Workout"):
-        session.add(Workout(
-            user_id=user_id,
-            exercise=exercise,
-            sets=int(sets),
-            reps=int(reps),
-            weight=float(weight),
-            rest_time=int(rest_time),
-            goal=goal,
-            date=date
-        ))
-        session.commit()
-        st.success("Workout saved!")
+
+    # Create new workout session for this date
+    new_session = WorkoutSession(
+        user_id=user_id,
+        date=date,
+        title="Workout"
+    )
+    session.add(new_session)
+    session.commit()
+
+    # Get selected exercise object
+    selected_exercise_obj = session.query(Exercise).filter_by(name=exercise).first()
+
+    # Add workout entry
+    entry = WorkoutEntry(
+        session_id=new_session.id,
+        exercise_id=selected_exercise_obj.id,
+        sets=int(sets),
+        reps=int(reps),
+        weight=float(weight)
+    )
+
+    session.add(entry)
+    session.commit()
+
+    st.success("Workout saved successfully!")
 
     # ----------------------
     # Display workout summary
     # ----------------------
-    try:
-        workouts_df = pd.read_sql(
-            session.query(Workout).filter_by(user_id=user_id).statement,
-            engine
-        )
-    except Exception:
-        st.error("Unable to load workouts. Check database setup.")
-        st.stop()
 
-    if not workouts_df.empty:
-        workouts_df["volume"] = workouts_df["sets"] * workouts_df["reps"] * workouts_df["weight"]
-        workouts_df["week"] = pd.to_datetime(workouts_df["date"]).dt.isocalendar().week
+    sessions = session.query(WorkoutSession).filter_by(user_id=user_id).all()
 
-        weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
+if sessions:
+    data = []
+
+    for s in sessions:
+        for entry in s.exercises:
+            volume = entry.sets * entry.reps * entry.weight
+            data.append({
+                "date": s.date,
+                "exercise": entry.exercise.name,
+                "volume": volume
+            })
+
+    df = pd.DataFrame(data)
+
+    if not df.empty:
+        df["week"] = pd.to_datetime(df["date"]).dt.isocalendar().week
+        weekly = df.groupby(["week", "exercise"])["volume"].sum().reset_index()
+
         fig = px.bar(
-            weekly_summary,
+            weekly,
             x="week",
             y="volume",
             color="exercise",
             title="Weekly Workout Volume"
         )
-        st.plotly_chart(fig)
-    else:
-        st.info("No workouts logged yet.")
 
+        st.plotly_chart(fig)
+else:
+    st.info("No workouts logged yet.")
+    
     # ----------------------
     # Routine selection
     # ----------------------
