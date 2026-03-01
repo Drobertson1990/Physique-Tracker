@@ -104,7 +104,7 @@ if "page" not in st.session_state:
 # ----------------------
 st.sidebar.title("User Authentication")
 
-if not st.session_state.get("logged_in", False):
+if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
     password_input = st.sidebar.text_input("Password", type="password")
@@ -123,16 +123,18 @@ if not st.session_state.get("logged_in", False):
         else:
             st.sidebar.error("Enter email and password")
 
-    if auth_mode == "Login" and st.sidebar.button("Login"):
-        user = session.query(User).filter_by(email=email_input).first()
-        if user and user.check_password(password_input):
-            st.session_state.logged_in = True
-            st.session_state.user_id = user.id
-            st.session_state.user_email = user.email
-            st.session_state.page = "Dosing"  # default page
-            st.experimental_rerun()
-        else:
-            st.sidebar.error("Invalid credentials")
+    if auth_mode == "Login":
+        login_clicked = st.sidebar.button("Login")
+        if login_clicked:
+            user = session.query(User).filter_by(email=email_input).first()
+            if user and user.check_password(password_input):
+                st.session_state.logged_in = True
+                st.session_state.user_id = user.id
+                st.session_state.user_email = user.email
+                st.session_state.page = "Dosing"  # default page
+                st.experimental_rerun()  # safe now
+            else:
+                st.sidebar.error("Invalid credentials")
 
 else:
     st.sidebar.title("Navigation")
