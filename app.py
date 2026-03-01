@@ -525,27 +525,36 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
     st.header("Log Workout")
 
+    # ----------------------
     # Exercise selection
+    # ----------------------
     exercise_library = [ex.name for ex in session.query(Exercise).all()]
     if not exercise_library:
-        exercise_library = ["No exercises available"]
+        st.warning("No exercises available. Please add exercises first.")
+        st.stop()
     exercise = st.selectbox("Exercise", exercise_library)
 
-    sets = st.number_input("Sets", 1, min_value=1)
-    reps = st.number_input("Reps", 1, min_value=1)
-    weight = st.number_input("Weight", 0.0, min_value=0.0)
-    rest_time = st.number_input("Rest (seconds)", 60, min_value=0)
+    # ----------------------
+    # Workout inputs
+    # ----------------------
+    sets = st.number_input("Sets", min_value=1, value=1, step=1)
+    reps = st.number_input("Reps", min_value=1, value=1, step=1)
+    weight = st.number_input("Weight", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+    rest_time = st.number_input("Rest (seconds)", min_value=0, value=60, step=5)
     goal = st.selectbox("Goal", ["Hypertrophy", "Strength", "Fat Loss", "Endurance"])
     date = st.date_input("Date", datetime.date.today())
 
+    # ----------------------
+    # Save workout
+    # ----------------------
     if st.button("Save Workout"):
         session.add(Workout(
             user_id=user_id,
             exercise=exercise,
-            sets=sets,
-            reps=reps,
-            weight=weight,
-            rest_time=rest_time,
+            sets=int(sets),
+            reps=int(reps),
+            weight=float(weight),
+            rest_time=int(rest_time),
             goal=goal,
             date=date
         ))
@@ -561,7 +570,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
             engine
         )
     except Exception:
-        st.error("Unable to load workouts. Make sure the database is initialized correctly.")
+        st.error("Unable to load workouts. Check database setup.")
         st.stop()
 
     if not workouts_df.empty:
@@ -570,16 +579,31 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Workou
 
         weekly_summary = workouts_df.groupby(["week","exercise"])["volume"].sum().reset_index()
         fig = px.bar(
-            weekly_summary, 
-            x="week", 
-            y="volume", 
-            color="exercise", 
+            weekly_summary,
+            x="week",
+            y="volume",
+            color="exercise",
             title="Weekly Workout Volume"
         )
         st.plotly_chart(fig)
     else:
         st.info("No workouts logged yet.")
 
+    # ----------------------
+    # Routine selection
+    # ----------------------
+    routines = session.query(Routine).all()
+    routine_names = [r.name for r in routines] if routines else []
+    selected_routine_name = st.selectbox("Select Routine", ["Custom"] + routine_names)
+
+    if selected_routine_name != "Custom" and routine_names:
+        routine = session.query(Routine).filter_by(name=selected_routine_name).first()
+        routine_exercises = session.query(RoutineExercise).filter_by(routine_id=routine.id).all()
+        st.subheader(f"Routine: {routine.name} ({routine.goal})")
+
+        for re in routine_exercises:
+            ex = session.query(Exercise).get(re.exercise_id)
+            st.write(f"**{ex.name}** - {re.sets}x{re.reps}, Rest {re.rest_time}s")
     # ----------------------
     # ROUTINES SELECTION
     # ----------------------
