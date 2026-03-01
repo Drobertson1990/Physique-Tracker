@@ -401,18 +401,23 @@ page = st.session_state.page
 # ----------------------
 if st.session_state.logged_in and page == "Dashboard":
     st.header("Dashboard Overview")
-    try:
-        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
-        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
-        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
-    except Exception as e:
-        st.error(f"Database read error: {e}")
-        st.stop()
+
+    doses = pd.read_sql(
+        session.query(Dose).filter_by(user_id=user_id).statement,
+        engine
+    )
+
+    meals = pd.read_sql(
+        session.query(MealLog).filter_by(user_id=user_id).statement,
+        engine
+    )
+
+    sessions = session.query(WorkoutSession).filter_by(user_id=user_id).all()
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Doses Logged", len(doses))
     col2.metric("Meals Logged", len(meals))
-    col3.metric("Workouts Logged", len(workouts))
+    col3.metric("Workouts Logged", len(sessions))
 
     # ----------------------
     # DOSING PAGE
@@ -491,8 +496,6 @@ if st.session_state.logged_in and page == "Dosing":
     # Add Custom option
     compound_options = list(compounds.keys()) + ["Custom"]
     compound_choice = st.selectbox("Select Compound", compound_options, key="compound_choice")
-    amount = st.number_input("Amount (mg)", min_value=0.0, key="dose_amount")
-    date = st.date_input("Date", datetime.date.today(), key="dose_date")
     st.button("Save Dose", key="save_dose_btn")
     graph_type = st.selectbox("Graph Type", ["Bar","Line","Area"], key="graph_type")
 
