@@ -288,82 +288,54 @@ with engine.begin() as conn:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
 
 # ----------------------
-# SIDEBAR: AUTH & NAVIGATION
+# STREAMLIT SIDEBAR NAVIGATION
 # ----------------------
-st.sidebar.title("User Panel")
 
-# Ensure session state keys exist
-for key, default in {
-    "logged_in": False,
-    "user_id": None,
-    "user_email": "",
-    "page": "Dosing",
-    "user_name": "Guest"
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
+st.sidebar.title("👋 Welcome")
 
-def login_user(user):
-    """Set session state for logged in user."""
-    st.session_state.logged_in = True
-    st.session_state.user_id = user.id
-    st.session_state.user_email = user.email
-    st.session_state.user_name = user.email.split("@")[0]  # simple name
-    st.session_state.page = "Dashboard"
+# Show logged in user
+user_name = st.session_state.get("user_name", st.session_state.get("user_email", "Guest"))
+st.sidebar.markdown(f"### {user_name}")
+st.sidebar.markdown("---")
 
-# ----------------------
-# Not logged in: show Login/Register
-# ----------------------
-if not st.session_state.logged_in:
-    auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email")
-    password_input = st.sidebar.text_input("Password", type="password")
+# Define sidebar pages with labels + icons
+pages = [
+    ("Home 🏠", "home"),
+    ("Dosing 💉", "droplet"),
+    ("Meals 🍽", "utensils"),
+    ("Workouts 🏋️‍♂️", "dumbbell"),
+    ("Bloodwork 🩸", "flask"),
+    ("Photos 📸", "camera"),
+    ("Dashboard 📊", "bar-chart"),
+    ("Settings ⚙️", "gear"),
+    ("Logout 🔒", "log-out")
+]
 
-    if st.sidebar.button(auth_mode):
-        if not email_input.strip() or not password_input.strip():
-            st.sidebar.error("Enter email and password")
-        else:
-            if auth_mode == "Register":
-                existing = session.query(User).filter_by(email=email_input).first()
-                if existing:
-                    st.sidebar.error("User already exists")
-                else:
-                    new_user = User(email=email_input)
-                    new_user.set_password(password_input)
-                    session.add(new_user)
-                    session.commit()
-                    st.sidebar.success("User registered! You can now log in.")
-            elif auth_mode == "Login":
-                user = session.query(User).filter_by(email=email_input).first()
-                if user and user.check_password(password_input):
-                    login_user(user)
-                    st.experimental_rerun()
-                else:
-                    st.sidebar.error("Invalid credentials")
+# Extract page names for selectbox
+page_names = [p[0] for p in pages]
 
-# ----------------------
-# Logged in: show navigation
-# ----------------------
-else:
-    st.sidebar.markdown(f"### 👋 Hello, {st.session_state.user_name}")
-    st.sidebar.markdown("---")
-    
-    pages = ["Dashboard", "Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Settings", "Logout"]
-    st.session_state.page = st.sidebar.selectbox(
-        "Go to Page",
-        pages,
-        index=pages.index(st.session_state.page),
-        key="nav_select"
-    )
-    
-    st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
+# Safely get current page index
+try:
+    current_index = page_names.index(st.session_state.page)
+except ValueError:
+    current_index = 0  # default to Home if page not found
 
-    # Logout logic
-    if st.session_state.page == "Logout":
-        for key in ["logged_in", "user_id", "user_email", "page", "user_name"]:
-            st.session_state[key] = None if key != "page" else "Dosing"
-        st.success("Logged out successfully")
-        st.experimental_rerun()
+# Sidebar selectbox
+st.session_state.page = st.sidebar.selectbox(
+    "Navigate",
+    page_names,
+    index=current_index,
+    key="nav_select"
+)
+
+# Logout logic
+if st.session_state.page.startswith("Logout"):
+    st.session_state.logged_in = False
+    st.session_state.user_id = None
+    st.session_state.user_email = ""
+    st.session_state.page = "Home 🏠"
+    st.success("Logged out successfully")
+    st.experimental_rerun()
 
 # ----------------------
 # HOME PAGE
