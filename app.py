@@ -362,21 +362,23 @@ if page == "Home 🏠":
     if col3.button("💉 Log Dose"):
         st.session_state.page = "Dosing 💉"
         st.experimental_rerun()
-    if col4.button("📊 View Dashboard"):
-        st.experimental_rerun()  # already home
+    if col4.button("📊 Refresh Dashboard"):
+        st.experimental_rerun()
 
     st.markdown("---")
 
-    # Fetch recent user data
+    # Fetch user logs
     try:
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(7).statement, engine)
-        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(7).statement, engine)
+        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(100).statement, engine)
         workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(7).statement, engine)
     except Exception as e:
         st.error(f"Database read error: {e}")
         st.stop()
 
+    # ----------------------
     # Summary Metrics
+    # ----------------------
     st.subheader("📊 Summary Metrics")
     col1, col2, col3 = st.columns(3)
     col1.metric("Doses Logged", len(doses))
@@ -385,18 +387,18 @@ if page == "Home 🏠":
 
     st.markdown("---")
 
+    # ----------------------
     # Daily Macro Progress
+    # ----------------------
     st.subheader("🔥 Daily Macro Progress")
-    if not meals.empty:
-        daily_totals = {
-            "Calories": meals["calories"].sum(),
-            "Protein": meals["protein"].sum(),
-            "Carbs": meals["carbs"].sum(),
-            "Fats": meals["fats"].sum()
-        }
-    else:
-        daily_totals = {"Calories":0, "Protein":0, "Carbs":0, "Fats":0}
-
+    today = datetime.date.today()
+    today_meals = meals[meals['date'] == pd.Timestamp(today)]
+    daily_totals = {
+        "Calories": today_meals["calories"].sum() if not today_meals.empty else 0,
+        "Protein": today_meals["protein"].sum() if not today_meals.empty else 0,
+        "Carbs": today_meals["carbs"].sum() if not today_meals.empty else 0,
+        "Fats": today_meals["fats"].sum() if not today_meals.empty else 0
+    }
     daily_targets = st.session_state.get("macro_targets", {"Calories":2500,"Protein":200,"Carbs":300,"Fats":70})
     cols = st.columns(4)
     for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
@@ -406,20 +408,48 @@ if page == "Home 🏠":
         cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
         cols[i].progress(pct)
 
+    # ----------------------
+    # Weekly Compliance
+    # ----------------------
     st.markdown("---")
+    st.subheader("🏆 Weekly Nutrition Compliance")
 
-    # Weekly Overview
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+    week_meals = meals[(meals['date'] >= pd.Timestamp(week_start)) & (meals['date'] <= pd.Timestamp(week_end))]
+
+    weekly_score = 0
+    if not week_meals.empty:
+        day_scores = []
+        for day in pd.date_range(week_start, week_end):
+            day_meals = week_meals[week_meals['date'] == pd.Timestamp(day)]
+            if day_meals.empty:
+                day_scores.append(0)
+            else:
+                pct = sum(day_meals[["calories","protein","carbs","fats"]].sum()/pd.Series(daily_targets)) / 4
+                day_scores.append(min(pct,1.0))
+        weekly_score = int(sum(day_scores)/len(day_scores)*100)
+    st.metric("Compliance Score", f"{weekly_score}/100")
+
+    # ----------------------
+    # Weekly Macro Chart
+    # ----------------------
+    st.markdown("---")
     st.subheader("📅 Weekly Macro Overview")
-    week_days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
-    weekly_data = pd.DataFrame({
-        "Day": week_days,
-        "Calories": [2000,2100,1800,2200,2000,1900,2050],
-        "Protein": [180,190,160,200,180,170,185],
-        "Carbs": [250,270,230,280,260,240,250],
-        "Fats": [65,70,60,75,68,63,66]
-    })
+    weekly_data = []
+    for day in pd.date_range(week_start, week_end):
+        day_meals = week_meals[week_meals['date'] == pd.Timestamp(day)]
+        weekly_data.append({
+            "Day": day.strftime("%a"),
+            "Calories": day_meals["calories"].sum() if not day_meals.empty else 0,
+            "Protein": day_meals["protein"].sum() if not day_meals.empty else 0,
+            "Carbs": day_meals["carbs"].sum() if not day_meals.empty else 0,
+            "Fats": day_meals["fats"].sum() if not day_meals.empty else 0
+        })
+    weekly_df = pd.DataFrame(weekly_data)
+
     fig_week = px.bar(
-        weekly_data,
+        weekly_df,
         x="Day",
         y=["Calories","Protein","Carbs","Fats"],
         barmode="group",
@@ -428,17 +458,18 @@ if page == "Home 🏠":
     )
     st.plotly_chart(fig_week, use_container_width=True)
 
-    st.markdown("---")
-
+    # ----------------------
     # Recent Logs
+    # ----------------------
+    st.markdown("---")
     st.subheader("🍴 Recent Meals")
-    st.dataframe(meals if not meals.empty else pd.DataFrame({"Info":["No meals logged yet."]}))
+    st.dataframe(today_meals if not today_meals.empty else pd.DataFrame({"Info":["No meals logged today."]}))
 
     st.subheader("🏋️‍♂️ Recent Workouts")
-    st.dataframe(workouts if not workouts.empty else pd.DataFrame({"Info":["No workouts logged yet."]}))
+    st.dataframe(workouts.head(7) if not workouts.empty else pd.DataFrame({"Info":["No workouts logged yet."]}))
 
     st.subheader("💉 Recent Doses")
-    st.dataframe(doses if not doses.empty else pd.DataFrame({"Info":["No doses logged yet."]}))
+    st.dataframe(doses.head(7) if not doses.empty else pd.DataFrame({"Info":["No doses logged yet."]}))
 
 # ----------------------
 # OTHER PAGES
