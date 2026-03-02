@@ -321,7 +321,7 @@ def login_user(user):
     st.session_state.page = "Home 🏠"
 
 # ----------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (fixed)
 # ----------------------
 pages = [
     "Home 🏠",
@@ -347,8 +347,9 @@ if st.session_state.logged_in:
 
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
+        # Only rerun if not logging out
         if selected_page != "Logout":
-        st.experimental_rerun()
+            st.experimental_rerun()
 
     # Handle Logout
     if st.session_state.page == "Logout":
