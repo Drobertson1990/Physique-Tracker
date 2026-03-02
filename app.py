@@ -286,6 +286,102 @@ with engine.begin() as conn:
         conn.execute(text("ALTER TABLE exercises ADD COLUMN equipment TEXT DEFAULT ''"))
     if 'secondary_muscles' not in columns:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
+
+# ----------------------
+# STREAMLIT PAGE CONFIG & SIDEBAR NAVIGATION
+# ----------------------
+st.set_page_config(page_title="Physique Tracker", layout="wide")
+
+# Sidebar Navigation
+user_name = st.session_state.get("user_name", "Guest")
+st.sidebar.markdown(f"### 👋 Hello, {user_name}")
+st.sidebar.markdown("---")
+
+# Sidebar navigation options with icons
+page = st.sidebar.radio(
+    "Go to",
+    ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Progress 📊", "Settings ⚙️"]
+)
+
+# Store selected page in session state
+st.session_state.page = page
+
+# ----------------------
+# HOME PAGE
+# ----------------------
+if page.startswith("Home"):
+
+    st.title("🏠 Home Dashboard")
+
+    # Placeholder daily totals (replace later with DB query)
+    daily_totals = {
+        "Calories": 1800,
+        "Protein": 150,
+        "Carbs": 220,
+        "Fats": 60
+    }
+    daily_targets = st.session_state.get("macro_targets", {
+        "Calories": 2500,
+        "Protein": 200,
+        "Carbs": 300,
+        "Fats": 70
+    })
+
+    st.subheader("🔥 Daily Macro Progress")
+    cols = st.columns(4)
+    macro_colors = {"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
+
+    for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
+        actual = daily_totals.get(macro, 0)
+        target = daily_targets.get(macro, 0)
+        pct = min(actual/target, 1.0)
+        cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
+        cols[i].progress(pct)
+
+    st.markdown("---")
+
+    # Quick Actions
+    st.subheader("⚡ Quick Actions")
+    col1, col2, col3 = st.columns(3)
+    if col1.button("🍽 Log Meal"):
+        st.session_state.page = "Meals"
+    if col2.button("🏋️‍♂️ Log Workout"):
+        st.session_state.page = "Workouts"
+    if col3.button("📊 View Progress"):
+        st.session_state.page = "Progress"
+
+    st.markdown("---")
+
+    # Weekly Compliance Snapshot
+    st.subheader("🏆 Weekly Nutrition Snapshot")
+    weekly_score = 88  # placeholder, replace with actual calculation
+    st.metric("Compliance Score", f"{weekly_score}/100")
+
+    # Mini weekly macro chart
+    weekly_data = pd.DataFrame({
+        "Day":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+        "Calories":[2000, 2100, 1800, 2200, 2000, 1900, 2050],
+        "Protein":[180, 190, 160, 200, 180, 170, 185],
+        "Carbs":[250, 270, 230, 280, 260, 240, 250],
+        "Fats":[65, 70, 60, 75, 68, 63, 66]
+    })
+
+    fig_week = px.bar(
+        weekly_data,
+        x="Day",
+        y=["Calories","Protein","Carbs","Fats"],
+        barmode="group",
+        title="Weekly Macro Overview"
+    )
+    st.plotly_chart(fig_week, use_container_width=True)
+
+    st.markdown("---")
+
+    # Recent Meals
+    st.subheader("🍴 Recent Meals")
+    recent_meals = ["Chicken Breast", "Oatmeal", "Salmon", "Brown Rice"]  # placeholder
+    for meal in recent_meals:
+        st.write(f"- {meal}")
         
 # ----------------------
 # SESSION STATE INIT
