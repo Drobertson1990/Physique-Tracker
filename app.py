@@ -348,7 +348,7 @@ if st.session_state.logged_in:
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
         if selected_page != "Logout":
-            st.experimental_rerun()
+        st.experimental_rerun()
 
     # Handle Logout
     if st.session_state.page == "Logout":
