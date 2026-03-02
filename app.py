@@ -340,11 +340,13 @@ if st.session_state.logged_in:
 # ----------------------
 if not st.session_state.logged_in:
     st.sidebar.subheader("Login / Register")
-    auth_mode = st.sidebar.radio("Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email")
-    password_input = st.sidebar.text_input("Password", type="password")
+    auth_mode = st.sidebar.radio("Action", ["Login", "Register"], key="auth_mode")
+    
+    # Use unique keys for each input
+    email_input = st.sidebar.text_input("Email", key="email_input")
+    password_input = st.sidebar.text_input("Password", type="password", key="password_input")
 
-    if st.sidebar.button(auth_mode):
+    if st.sidebar.button(auth_mode, key="auth_button"):
         if not email_input or not password_input:
             st.sidebar.error("Enter email and password")
         else:
