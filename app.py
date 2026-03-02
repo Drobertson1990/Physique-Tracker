@@ -732,32 +732,32 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Meals"
                 st.write(f"{macro.capitalize()}: {daily_totals[macro]:.0f} / {target} ({pct:.0f}%)")
                 st.progress(min(int(pct), 100))
 
-# ----------------------
-# 7️⃣ Advanced Weekly Nutrition Dashboard
-# ----------------------
-st.subheader("📊 Advanced Weekly Nutrition Dashboard")
-
-# Ensure datetime
-meals["date"] = pd.to_datetime(meals["date"], errors="coerce")
-
-today = pd.Timestamp.today().normalize()
-seven_days_ago = today - pd.Timedelta(days=7)
-
-weekly_meals = meals[meals["date"] >= seven_days_ago]
-
-# Safe default targets
-macro_targets = st.session_state.get("macro_targets", {
-    "Calories": 2500,
-    "Protein": 180,
-    "Carbs": 300,
-    "Fats": 70
-})
-
-if weekly_meals.empty:
-    st.info("No meals logged in last 7 days.")
-else:
-
     # ----------------------
+    # 7️⃣ Advanced Weekly Nutrition Dashboard
+    # ----------------------
+    st.subheader("📊 Advanced Weekly Nutrition Dashboard")
+
+    # Ensure datetime
+    meals["date"] = pd.to_datetime(meals["date"], errors="coerce")
+
+    today = pd.Timestamp.today().normalize()
+    seven_days_ago = today - pd.Timedelta(days=7)
+
+    weekly_meals = meals[meals["date"] >= seven_days_ago]
+
+    # Safe default targets
+    macro_targets = st.session_state.get("macro_targets", {
+        "Calories": 2500,
+        "Protein": 180,
+        "Carbs": 300,
+        "Fats": 70
+    })
+
+    if weekly_meals.empty:
+        st.info("No meals logged in last 7 days.")
+    else:
+
+      # ----------------------
     # Totals & Averages
     # ----------------------
     weekly_totals = weekly_meals[["calories","protein","carbs","fats"]].sum()
