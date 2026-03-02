@@ -288,17 +288,17 @@ with engine.begin() as conn:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
 
 # ----------------------
-# STREAMLIT SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (Modern Buttons)
 # ----------------------
 
 st.sidebar.title("👋 Welcome")
 
-# Show logged in user
-user_name = st.session_state.get("user_name", st.session_state.get("user_email", "Guest"))
+# Show logged-in user
+user_name = st.session_state.get("user_name") or st.session_state.get("user_email") or "Guest"
 st.sidebar.markdown(f"### {user_name}")
 st.sidebar.markdown("---")
 
-# Define sidebar pages with labels + icons
+# Define pages and icons
 pages = [
     ("Home 🏠", "home"),
     ("Dosing 💉", "droplet"),
@@ -311,31 +311,23 @@ pages = [
     ("Logout 🔒", "log-out")
 ]
 
-# Extract page names for selectbox
-page_names = [p[0] for p in pages]
-
-# Safely get current page index
-try:
-    current_index = page_names.index(st.session_state.page)
-except ValueError:
-    current_index = 0  # default to Home if page not found
-
-# Sidebar selectbox
-st.session_state.page = st.sidebar.selectbox(
-    "Navigate",
-    page_names,
-    index=current_index,
-    key="nav_select"
-)
-
-# Logout logic
-if st.session_state.page.startswith("Logout"):
-    st.session_state.logged_in = False
-    st.session_state.user_id = None
-    st.session_state.user_email = ""
+# Initialize session_state.page safely
+if "page" not in st.session_state:
     st.session_state.page = "Home 🏠"
-    st.success("Logged out successfully")
-    st.experimental_rerun()
+
+# Create buttons for each page
+st.sidebar.markdown("### Navigate")
+for page_label, icon in pages:
+    if st.sidebar.button(page_label):
+        st.session_state.page = page_label
+        if page_label.startswith("Logout"):
+            # Reset session state
+            st.session_state.logged_in = False
+            st.session_state.user_id = None
+            st.session_state.user_email = ""
+            st.session_state.page = "Home 🏠"
+            st.success("Logged out successfully")
+        st.experimental_rerun()
 
 # ----------------------
 # HOME PAGE
