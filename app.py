@@ -894,29 +894,63 @@ else:
 
 st.info(f"🧠 Coach Insight: {coach_msg}")
 
-        # ----------------------
-        # 8️⃣ Weekly Macro Trends
-        # ----------------------
-        st.subheader("Weekly Macro Trends")
-        weekly_summary = meals.groupby("week")[["protein","carbs","fats","calories"]].sum().reset_index()
-        if not weekly_summary.empty:
-            if graph_type == "Bar":
-                fig_weekly = px.bar(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
-            elif graph_type == "Line":
-                fig_weekly = px.line(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
-            else:
-                fig_weekly = px.area(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
-            st.plotly_chart(fig_weekly, use_container_width=True)
+# ----------------------
+# 8️⃣ Weekly Macro Trends
+# ----------------------
+st.subheader("Weekly Macro Trends")
 
-        # ----------------------
-        # 9️⃣ Rolling 7-Day Averages
-        # ----------------------
-        st.subheader("7-Day Rolling Average")
-        meals_sorted = meals.sort_values("date")
-        rolling = meals_sorted[["date","protein","carbs","fats"]].set_index("date").rolling(7).mean().reset_index()
-        if not rolling.empty:
-            fig_rolling = px.line(rolling, x="date", y=["protein","carbs","fats"], title="7-Day Rolling Average Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
-            st.plotly_chart(fig_rolling, use_container_width=True)
+meals["week"] = meals["date"].dt.isocalendar().week
+
+weekly_summary = (
+    meals
+    .groupby("week")[["protein","carbs","fats","calories"]]
+    .sum()
+    .reset_index()
+)
+
+if not weekly_summary.empty:
+
+    if graph_type == "Bar":
+        fig_weekly = px.bar(
+            weekly_summary,
+            x="week",
+            y=["protein","carbs","fats"],
+            title="Weekly Macros"
+        )
+    else:
+        fig_weekly = px.line(
+            weekly_summary,
+            x="week",
+            y=["protein","carbs","fats"],
+            title="Weekly Macros"
+        )
+
+    st.plotly_chart(fig_weekly, use_container_width=True)
+
+# ----------------------
+# 9️⃣ Rolling 7-Day Averages
+# ----------------------
+st.subheader("7-Day Rolling Average")
+
+meals_sorted = meals.sort_values("date")
+
+rolling = (
+    meals_sorted
+    .set_index("date")[["protein","carbs","fats"]]
+    .rolling("7D")
+    .mean()
+    .reset_index()
+)
+
+if not rolling.empty:
+    fig_rolling = px.line(
+        rolling,
+        x="date",
+        y=["protein","carbs","fats"],
+        title="7-Day Rolling Average Macros"
+    )
+
+    st.plotly_chart(fig_rolling, use_container_width=True)
         
 # ----------------------
 # WORKOUT PAGE
