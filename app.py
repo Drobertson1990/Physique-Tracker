@@ -732,92 +732,151 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Meals"
                 st.write(f"{macro.capitalize()}: {daily_totals[macro]:.0f} / {target} ({pct:.0f}%)")
                 st.progress(min(int(pct), 100))
 
+# ----------------------
+# 7️⃣ Advanced Weekly Nutrition Dashboard
+# ----------------------
+st.subheader("📊 Advanced Weekly Nutrition Dashboard")
+
+# Ensure datetime
+meals["date"] = pd.to_datetime(meals["date"], errors="coerce")
+
+today = pd.Timestamp.today().normalize()
+seven_days_ago = today - pd.Timedelta(days=7)
+
+weekly_meals = meals[meals["date"] >= seven_days_ago]
+
+# Safe default targets
+macro_targets = st.session_state.get("macro_targets", {
+    "Calories": 2500,
+    "Protein": 180,
+    "Carbs": 300,
+    "Fats": 70
+})
+
+if weekly_meals.empty:
+    st.info("No meals logged in last 7 days.")
+else:
+
     # ----------------------
-    # 7️⃣ Weekly Macro Trends & Insights
+    # Totals & Averages
     # ----------------------
-    st.subheader("📊 Weekly Macro Trend & Progress")
+    weekly_totals = weekly_meals[["calories","protein","carbs","fats"]].sum()
+    weekly_avg = weekly_meals[["calories","protein","carbs","fats"]].mean()
 
-    # Ensure date column is datetime
-    meals["date"] = pd.to_datetime(meals["date"], errors="coerce")
+    # ----------------------
+    # Compliance Score
+    # ----------------------
+    compliance_scores = []
+    for macro in ["Calories","Protein","Carbs","Fats"]:
+        target = macro_targets[macro]
+        avg = weekly_avg[macro.lower()]
+        score = max(0, 100 - abs((avg - target) / target * 100))
+        compliance_scores.append(score)
 
-    # Define date range (last 7 days)
-    today = pd.Timestamp.today().normalize()
-    seven_days_ago = today - pd.Timedelta(days=7)
+    overall_score = sum(compliance_scores) / len(compliance_scores)
 
-    weekly_meals = meals[meals["date"] >= seven_days_ago]
+    st.metric("🏆 Weekly Nutrition Compliance Score", f"{overall_score:.0f}/100")
 
-    if weekly_meals.empty:
-        st.info("No meals logged in the last 7 days.")
+    # ----------------------
+    # Rolling 7-Day Line Chart
+    # ----------------------
+    daily_grouped = (
+        weekly_meals
+        .groupby(weekly_meals["date"].dt.date)
+        [["calories","protein","carbs","fats"]]
+        .sum()
+        .reset_index()
+    )
+
+    graph_type = st.selectbox("Select Graph Type", ["Line", "Bar"])
+
+    if graph_type == "Line":
+        fig = px.line(
+            daily_grouped,
+            x="date",
+            y=["calories","protein","carbs","fats"],
+            markers=True,
+            title="7-Day Macro Trend"
+        )
     else:
-        # Daily targets (replace with session targets if you have them)
-        daily_targets = st.session_state.get("macro_targets", {
-            "Calories": 2500,
-            "Protein": 150,
-            "Carbs": 300,
-            "Fats": 70
-        })
+        fig = px.bar(
+            daily_grouped,
+            x="date",
+            y=["calories","protein","carbs","fats"],
+            barmode="group",
+            title="7-Day Macro Trend"
+        )
 
-        # Weekly totals
-        weekly_totals = weekly_meals[["calories","protein","carbs","fats"]].sum()
-
-        # Weekly averages
-        weekly_avg = weekly_meals[["calories","protein","carbs","fats"]].mean()
-
-        st.markdown("### Weekly Totals vs Weekly Targets")
-
-        for macro in ["Calories","Protein","Carbs","Fats"]:
-            weekly_target = daily_targets[macro] * 7
-            actual = weekly_totals[macro.lower()]
-            pct = actual / weekly_target
-
-            st.write(f"{macro}: {actual:.0f} / {weekly_target} ({pct*100:.1f}%)")
-            st.progress(min(pct, 1.0))
+    st.plotly_chart(fig, use_container_width=True)
 
     # ----------------------
     # Average vs Target Chart
     # ----------------------
     avg_df = pd.DataFrame({
         "Macro": ["Calories","Protein","Carbs","Fats"],
-        "Average Intake": [
+        "Average": [
             weekly_avg["calories"],
             weekly_avg["protein"],
             weekly_avg["carbs"],
             weekly_avg["fats"]
         ],
-        "Daily Target": [
-            daily_targets["Calories"],
-            daily_targets["Protein"],
-            daily_targets["Carbs"],
-            daily_targets["Fats"]
+        "Target": [
+            macro_targets["Calories"],
+            macro_targets["Protein"],
+            macro_targets["Carbs"],
+            macro_targets["Fats"]
         ]
     })
 
-    fig_weekly = px.bar(
+    fig_avg = px.bar(
         avg_df.melt(id_vars="Macro"),
         x="Macro",
         y="value",
         color="variable",
         barmode="group",
-        labels={"value":"Amount","variable":""},
-        title="Average Daily Intake vs Target (Last 7 Days)"
+        title="Average Intake vs Target"
     )
 
-    st.plotly_chart(fig_weekly, use_container_width=True)
+    st.plotly_chart(fig_avg, use_container_width=True)
 
     # ----------------------
-    # Weekly Insight Alerts
+    # Cut / Bulk Mode
     # ----------------------
-    st.markdown("### ⚡ Weekly Insights")
+    phase = st.radio("Phase Mode", ["Cut", "Maintenance", "Bulk"], horizontal=True)
+
+    coach_message = ""
+
+    if phase == "Cut":
+        if weekly_avg["calories"] > macro_targets["Calories"]:
+            coach_message = "Calories trending high for a cut. Tighten intake."
+        else:
+            coach_message = "Calorie control solid for cutting phase."
+
+    elif phase == "Bulk":
+        if weekly_avg["protein"] < macro_targets["Protein"]:
+            coach_message = "Increase protein for optimal lean mass gain."
+        else:
+            coach_message = "Protein intake supports hypertrophy."
+
+    else:
+        coach_message = "Maintenance phase stable. Focus on consistency."
+
+    st.info(f"🧠 Coach Insight: {coach_message}")
+
+    # ----------------------
+    # Weekly Macro Alerts
+    # ----------------------
+    st.markdown("### ⚡ Weekly Alerts")
 
     for _, row in avg_df.iterrows():
-        diff_pct = (row["Average Intake"] - row["Daily Target"]) / row["Daily Target"] * 100
+        diff_pct = (row["Average"] - row["Target"]) / row["Target"] * 100
 
         if diff_pct < -10:
-            st.warning(f"{row['Macro']} averaging {abs(diff_pct):.0f}% below target this week.")
+            st.warning(f"{row['Macro']} averaging {abs(diff_pct):.0f}% below target.")
         elif diff_pct > 10:
-            st.error(f"{row['Macro']} averaging {diff_pct:.0f}% above target this week.")
+            st.error(f"{row['Macro']} averaging {diff_pct:.0f}% above target.")
         else:
-            st.success(f"{row['Macro']} on track this week ✅")
+            st.success(f"{row['Macro']} on track ✅")
 
         # ----------------------
         # 8️⃣ Weekly Macro Trends
