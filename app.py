@@ -398,11 +398,10 @@ if st.session_state.logged_in and page == "Dashboard":
     col3.metric("Workouts Logged", len(workouts))
 
 # ----------------------
-# DOSING PAGE
+# 🏋️‍♂️ DOSING PAGE (Polished)
 # ----------------------
 if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing":
     st.header("💉 Dosing Tracker")
-
     import datetime
     import pandas as pd
     import plotly.express as px
@@ -718,19 +717,33 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Meals"
         # ----------------------
         graph_type = st.selectbox("Select Graph Type", ["Bar", "Line", "Area"])
 
-        # ----------------------
-        # 6️⃣ Today's Macros vs Target
-        # ----------------------
-        st.subheader("Today's Macro Progress")
-        today = pd.Timestamp(datetime.date.today())
-        today_meals = meals[meals["date"] == today]
-        if not today_meals.empty:
-            daily_totals = today_meals[["calories","protein","carbs","fats"]].sum()
-            for macro in ["calories","protein","carbs","fats"]:
-                target = st.session_state.macro_targets[macro.capitalize()]
-                pct = daily_totals[macro]/target*100
-                st.write(f"{macro.capitalize()}: {daily_totals[macro]:.0f} / {target} ({pct:.0f}%)")
-                st.progress(min(int(pct), 100))
+# ----------------------
+# 6️⃣Today's Macro Progress Bars with Indicators
+# ----------------------
+st.subheader("🍽 Today's Macro Progress")
+if not today_meals.empty:
+    daily_totals = today_meals[["calories","protein","carbs","fats"]].sum()
+    
+    macro_order = ["Calories", "Protein", "Carbs", "Fats"]
+    colors = {"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
+
+    for macro in macro_order:
+        macro_lower = macro.lower()
+        target = st.session_state.macro_targets.get(macro, 0)
+        actual = daily_totals.get(macro_lower, 0)
+        pct = min(actual / target, 1.0)  # cap at 100% for progress bar
+
+        # Display progress bar with color
+        st.markdown(f"**{macro}: {actual:.0f} / {target} ({pct*100:.0f}%)**")
+        st.progress(pct)
+
+        # Surplus / Deficit indicator
+        if actual < target:
+            st.warning(f"{macro} is under target by {target - actual:.0f} g")
+        elif actual > target:
+            st.success(f"{macro} is over target by {actual - target:.0f} g")
+        else:
+            st.info(f"{macro} meets the target exactly")
 
 # ----------------------
 # 7️⃣ Elite Weekly Nutrition System
