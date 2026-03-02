@@ -332,18 +332,8 @@ for page_label, icon in pages:
 # ----------------------
 # HOME PAGE
 # ----------------------
-if page.startswith("Home"):
+if st.session_state.get("page", "Home 🏠").startswith("Home"):
     st.title("🏠 Home Dashboard")
-    st.subheader("⚡ Quick Actions")
-    col1, col2, col3 = st.columns(3)
-    if col1.button("🍽 Log Meal"):
-        st.session_state.page = "Meals"
-    if col2.button("🏋️‍♂️ Log Workout"):
-        st.session_state.page = "Workouts"
-    if col3.button("💉 Log Dose"):
-        st.session_state.page = "Dosing"
-    if col2.button("📊 View Progress"):
-        st.session_state.page = "Dashboard"
 
     # Placeholder daily totals (replace later with DB query)
     daily_totals = {
@@ -374,13 +364,15 @@ if page.startswith("Home"):
 
     # Quick Actions
     st.subheader("⚡ Quick Actions")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     if col1.button("🍽 Log Meal"):
         st.session_state.page = "Meals"
     if col2.button("🏋️‍♂️ Log Workout"):
         st.session_state.page = "Workouts"
-    if col3.button("📊 View Progress"):
-        st.session_state.page = "Progress"
+    if col3.button("💉 Log Dose"):
+        st.session_state.page = "Dosing"
+    if col4.button("📊 View Progress"):
+        st.session_state.page = "Dashboard"
 
     st.markdown("---")
 
