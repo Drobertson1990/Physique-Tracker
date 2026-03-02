@@ -319,25 +319,33 @@ def login_user(user):
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
-    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉",
-             "Bloodwork 🩸", "Photos 📸", "Settings ⚙️", "Logout"]
+    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Settings ⚙️", "Logout"]
 
+    # Ensure the current page is valid
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    current_index = pages.index(st.session_state.page)
-    selected_page = st.sidebar.selectbox("Navigation", pages, index=current_index)
+    # Selectbox for navigation
+    selected_page = st.sidebar.selectbox("Navigation", pages, index=pages.index(st.session_state.page))
 
+    # Update session state if different
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
-        st.experimental_rerun()
+        try:
+            st.experimental_rerun()
+        except RuntimeError:
+            pass  # Prevent rerun error if already inside a rerun
 
+    # Logout logic
     if st.session_state.page == "Logout":
-        for key in ["logged_in", "user_id", "user_email", "page"]:
-            st.session_state[key] = None if key != "page" else "Home 🏠"
+        for key in ["logged_in", "user_id", "user_email"]:
+            st.session_state[key] = None
+        st.session_state.page = "Home 🏠"
         st.success("Logged out successfully")
-        st.experimental_rerun()
-
+        try:
+            st.experimental_rerun()
+        except RuntimeError:
+            pass
 # ----------------------
 # PAGE ROUTING
 # ----------------------
