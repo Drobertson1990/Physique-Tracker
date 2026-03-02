@@ -322,7 +322,6 @@ if st.session_state.logged_in:
     pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉",
              "Bloodwork 🩸", "Photos 📸", "Settings ⚙️", "Logout"]
 
-    # ensure page is valid
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
@@ -333,7 +332,6 @@ if st.session_state.logged_in:
         st.session_state.page = selected_page
         st.experimental_rerun()
 
-    # Logout logic
     if st.session_state.page == "Logout":
         for key in ["logged_in", "user_id", "user_email", "page"]:
             st.session_state[key] = None if key != "page" else "Home 🏠"
@@ -347,7 +345,7 @@ page = st.session_state.page
 user_id = st.session_state.user_id
 
 # ----------------------
-# HOME + DASHBOARD PAGE
+# HOME + DASHBOARD
 # ----------------------
 if page == "Home 🏠":
     st.title("🏠 Dashboard Overview")
@@ -365,12 +363,11 @@ if page == "Home 🏠":
         st.session_state.page = "Dosing 💉"
         st.experimental_rerun()
     if col4.button("📊 View Dashboard"):
-        st.session_state.page = "Home 🏠"
-        st.experimental_rerun()
+        st.experimental_rerun()  # already home
 
     st.markdown("---")
 
-    # Fetch user data (graceful fallback)
+    # Fetch recent user data
     try:
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(7).statement, engine)
         meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(7).statement, engine)
@@ -403,16 +400,16 @@ if page == "Home 🏠":
     daily_targets = st.session_state.get("macro_targets", {"Calories":2500,"Protein":200,"Carbs":300,"Fats":70})
     cols = st.columns(4)
     for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
-        actual = daily_totals.get(macro, 0)
-        target = daily_targets.get(macro, 0)
+        actual = daily_totals.get(macro,0)
+        target = daily_targets.get(macro,0)
         pct = min(actual/target,1.0) if target>0 else 0
         cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
         cols[i].progress(pct)
 
     st.markdown("---")
 
-    # Weekly Macro Chart (placeholder if no real weekly tracking)
-    st.subheader("📅 Weekly Overview")
+    # Weekly Overview
+    st.subheader("📅 Weekly Macro Overview")
     week_days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
     weekly_data = pd.DataFrame({
         "Day": week_days,
@@ -435,22 +432,13 @@ if page == "Home 🏠":
 
     # Recent Logs
     st.subheader("🍴 Recent Meals")
-    if not meals.empty:
-        st.dataframe(meals)
-    else:
-        st.write("No meals logged yet.")
+    st.dataframe(meals if not meals.empty else pd.DataFrame({"Info":["No meals logged yet."]}))
 
     st.subheader("🏋️‍♂️ Recent Workouts")
-    if not workouts.empty:
-        st.dataframe(workouts)
-    else:
-        st.write("No workouts logged yet.")
+    st.dataframe(workouts if not workouts.empty else pd.DataFrame({"Info":["No workouts logged yet."]}))
 
     st.subheader("💉 Recent Doses")
-    if not doses.empty:
-        st.dataframe(doses)
-    else:
-        st.write("No doses logged yet.")
+    st.dataframe(doses if not doses.empty else pd.DataFrame({"Info":["No doses logged yet."]}))
 
 # ----------------------
 # OTHER PAGES
@@ -471,8 +459,8 @@ elif page == "Dosing 💉":
                 st.success(f"Dose logged: {compound} {amount}")
             else:
                 st.error("Enter a valid compound and amount")
-    st.subheader("Recent Doses")
     recent = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
+    st.subheader("Recent Doses")
     st.dataframe(recent)
 
 elif page == "Meals 🍽":
@@ -491,8 +479,8 @@ elif page == "Meals 🍽":
             session.add(new_meal)
             session.commit()
             st.success(f"Meal logged: {meal_name}")
-    st.subheader("Recent Meals")
     recent = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
+    st.subheader("Recent Meals")
     st.dataframe(recent)
 
 elif page == "Workouts 🏋️‍♂️":
@@ -510,8 +498,8 @@ elif page == "Workouts 🏋️‍♂️":
             session.add(new_w)
             session.commit()
             st.success(f"Workout logged: {exercise}")
-    st.subheader("Recent Workouts")
     recent = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
+    st.subheader("Recent Workouts")
     st.dataframe(recent)
 
 elif page == "Bloodwork 🩸":
