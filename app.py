@@ -321,7 +321,7 @@ def login_user(user):
     st.session_state.page = "Home 🏠"
 
 # ----------------------
-# SIDEBAR NAVIGATION (fixed)
+# SIDEBAR NAVIGATION (safe)
 # ----------------------
 pages = [
     "Home 🏠",
@@ -338,25 +338,28 @@ pages = [
 if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
 
-    # Ensure page is valid
+    # Ensure current page is valid
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    current_index = pages.index(st.session_state.page)
-    selected_page = st.sidebar.selectbox("Navigation", pages, index=current_index)
+    # Safe selectbox without rerun
+    def change_page(new_page):
+        if new_page == "Logout":
+            # Clear session
+            for key in ["logged_in", "user_id", "user_email", "page"]:
+                st.session_state[key] = None if key != "page" else "Home 🏠"
+            st.success("Logged out successfully")
+            st.experimental_rerun()  # Only rerun on logout
+        else:
+            st.session_state.page = new_page
 
-    if selected_page != st.session_state.page:
-        st.session_state.page = selected_page
-        # Only rerun if not logging out
-        if selected_page != "Logout":
-            st.experimental_rerun()
-
-    # Handle Logout
-    if st.session_state.page == "Logout":
-        for key in ["logged_in", "user_id", "user_email", "page"]:
-            st.session_state[key] = None if key != "page" else "Home 🏠"
-        st.success("Logged out successfully")
-        st.experimental_rerun()
+    selected_page = st.sidebar.selectbox(
+        "Navigation",
+        pages,
+        index=pages.index(st.session_state.page),
+        key="nav_selectbox",
+        on_change=lambda: change_page(st.session_state.nav_selectbox)
+    )
 
 # ----------------------
 # PAGE ROUTING
