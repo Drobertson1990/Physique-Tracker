@@ -295,14 +295,14 @@ st.set_page_config(page_title="Physique Tracker", layout="wide")
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "user_email" not in st.session_state:
-    st.session_state.user_email = ""
-if "page" not in st.session_state:
-    st.session_state.page = "Home 🏠"
+for key in ["logged_in", "user_id", "user_email", "page"]:
+    if key not in st.session_state:
+        if key == "page":
+            st.session_state[key] = "Home 🏠"
+        elif key == "logged_in":
+            st.session_state[key] = False
+        else:
+            st.session_state[key] = None
 
 # ----------------------
 # USER AUTH / LOGIN
@@ -312,9 +312,9 @@ def login_user(user):
     st.session_state.user_id = user.id
     st.session_state.user_email = user.email
     st.session_state.page = "Home 🏠"
-    st.experimental_rerun()
 
 st.sidebar.title("User Authentication")
+
 if not st.session_state.logged_in:
     auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
     email_input = st.sidebar.text_input("Email")
@@ -336,10 +336,11 @@ if not st.session_state.logged_in:
                 session.commit()
                 st.sidebar.success("User registered! You can now log in.")
 
-        if auth_mode == "Login":
+        elif auth_mode == "Login":
             user = session.query(User).filter_by(email=email_input).first()
             if user and user.check_password(password_input):
                 login_user(user)
+                st.experimental_rerun()  # rerun safely after setting session state
             else:
                 st.sidebar.error("Invalid credentials")
 
@@ -350,7 +351,6 @@ if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
     page_names = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
 
-    # Ensure current page exists in the list
     if st.session_state.page not in page_names:
         st.session_state.page = "Home 🏠"
 
@@ -367,47 +367,22 @@ if st.session_state.logged_in:
 
     # Handle Logout
     if st.session_state.page == "Logout":
-        st.session_state.logged_in = False
-        st.session_state.user_id = None
-        st.session_state.user_email = ""
-        st.session_state.page = "Home 🏠"
+        for key in ["logged_in", "user_id", "user_email", "page"]:
+            st.session_state[key] = None if key != "page" else "Home 🏠"
         st.success("Logged out successfully")
         st.experimental_rerun()
 
 # ----------------------
-# HOME PAGE
+# ROUTING FOR PAGES
 # ----------------------
 page = st.session_state.page
 
-if page.startswith("Home"):
+# ----------------------
+# HOME PAGE
+# ----------------------
+if page == "Home 🏠":
     st.title("🏠 Home Dashboard")
 
-    # Placeholder daily totals (replace later with DB query)
-    daily_totals = {
-        "Calories": 1800,
-        "Protein": 150,
-        "Carbs": 220,
-        "Fats": 60
-    }
-    daily_targets = st.session_state.get("macro_targets", {
-        "Calories": 2500,
-        "Protein": 200,
-        "Carbs": 300,
-        "Fats": 70
-    })
-
-    st.subheader("🔥 Daily Macro Progress")
-    cols = st.columns(4)
-    for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
-        actual = daily_totals.get(macro, 0)
-        target = daily_targets.get(macro, 0)
-        pct = min(actual/target, 1.0)
-        cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
-        cols[i].progress(pct)
-
-    st.markdown("---")
-
-    # Quick Actions
     st.subheader("⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
     if col1.button("🍽 Log Meal"):
@@ -423,37 +398,66 @@ if page.startswith("Home"):
         st.session_state.page = "Dashboard 📊"
         st.experimental_rerun()
 
-    st.markdown("---")
+# ----------------------
+# MEALS PAGE
+# ----------------------
+elif page == "Meals 🍽":
+    st.title("🍽 Meals")
+    st.write("Here you can log and view meals.")
 
-    # Weekly Compliance Snapshot
-    st.subheader("🏆 Weekly Nutrition Snapshot")
-    weekly_score = 88  # placeholder
-    st.metric("Compliance Score", f"{weekly_score}/100")
+# ----------------------
+# WORKOUTS PAGE
+# ----------------------
+elif page == "Workouts 🏋️‍♂️":
+    st.title("🏋️‍♂️ Workouts")
+    st.write("Here you can log and view workouts.")
 
-    # Mini weekly macro chart
-    weekly_data = pd.DataFrame({
-        "Day":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
-        "Calories":[2000, 2100, 1800, 2200, 2000, 1900, 2050],
-        "Protein":[180, 190, 160, 200, 180, 170, 185],
-        "Carbs":[250, 270, 230, 280, 260, 240, 250],
-        "Fats":[65, 70, 60, 75, 68, 63, 66]
-    })
-    fig_week = px.bar(
-        weekly_data,
-        x="Day",
-        y=["Calories","Protein","Carbs","Fats"],
-        barmode="group",
-        title="Weekly Macro Overview"
-    )
-    st.plotly_chart(fig_week, use_container_width=True)
+# ----------------------
+# DOSING PAGE
+# ----------------------
+elif page == "Dosing 💉":
+    st.title("💉 Dosing")
+    st.write("Here you can log your doses.")
 
-    st.markdown("---")
+# ----------------------
+# BLOODWORK PAGE
+# ----------------------
+elif page == "Bloodwork 🩸":
+    st.title("🩸 Bloodwork")
+    st.write("Here you can log and view bloodwork results.")
 
-    # Recent Meals
-    st.subheader("🍴 Recent Meals")
-    recent_meals = ["Chicken Breast", "Oatmeal", "Salmon", "Brown Rice"]
-    for meal in recent_meals:
-        st.write(f"- {meal}")
+# ----------------------
+# PHOTOS PAGE
+# ----------------------
+elif page == "Photos 📸":
+    st.title("📸 Photos")
+    st.write("Here you can upload and view progress photos.")
+
+# ----------------------
+# DASHBOARD PAGE
+# ----------------------
+elif page == "Dashboard 📊":
+    st.title("📊 Dashboard Overview")
+    user_id = st.session_state.user_id
+    try:
+        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
+        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
+        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).statement, engine)
+    except Exception as e:
+        st.error(f"Database read error: {e}")
+        st.stop()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Doses Logged", len(doses))
+    col2.metric("Meals Logged", len(meals))
+    col3.metric("Workouts Logged", len(workouts))
+
+# ----------------------
+# SETTINGS PAGE
+# ----------------------
+elif page == "Settings ⚙️":
+    st.title("⚙️ Settings")
+    st.write("User settings go here.")
         
 # ----------------------
 # SESSION STATE INIT
