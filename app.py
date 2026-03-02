@@ -548,7 +548,7 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         doses["week"] = doses["date"].dt.isocalendar().week
 
 # ----------------------
-# 7️⃣ Weekly Compound Dashboard (Color-coded by Category)
+# 7️⃣ Weekly Compound Dashboard (Responsive Grid)
 # ----------------------
 st.subheader("📅 Weekly Compound Dashboard")
 
@@ -560,14 +560,17 @@ weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index
 
 # Define category colors
 category_colors = {
-    "Peptide": "lightblue",
-    "Peptide Hormone": "blue",
-    "AAS": "orange",
-    "Custom": "green",
-    "Other": "grey"
+    "Peptide": "#ADD8E6",           # light blue
+    "Peptide Hormone": "#1E90FF",   # blue
+    "AAS": "#FFA500",                # orange
+    "Custom": "#90EE90",            # light green
+    "Other": "#D3D3D3"               # grey
 }
 
-# Build cards
+# Determine number of columns per row
+cols_per_row = 4
+compound_cards = []
+
 for compound in weekly_summary["compound"].unique():
     comp_data = weekly_summary[weekly_summary["compound"] == compound]
     total_amount = comp_data["amount"].sum()
@@ -579,22 +582,29 @@ for compound in weekly_summary["compound"].unique():
     else:
         category = "Custom"
     
-    color = category_colors.get(category, "grey")
-    
-    # Display card as metric with background color
-    st.markdown(
-        f"""
-        <div style="
-            background-color: {color};
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 5px;
+    color = category_colors.get(category, "#D3D3D3")
+
+    # Build card HTML
+    card_html = f"""
+    <div style="
+        background-color: {color};
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        font-weight: bold;
+        margin: 5px;
         ">
-        <strong>{compound}</strong> (Week {last_week}): {total_amount} mg
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
+        {compound}<br>
+        Week {last_week}<br>
+        {total_amount} mg
+    </div>
+    """
+    compound_cards.append(card_html)
+
+# Display cards in rows
+for i in range(0, len(compound_cards), cols_per_row):
+    row_html = "<div style='display:flex; flex-wrap: wrap;'>" + "".join(compound_cards[i:i+cols_per_row]) + "</div>"
+    st.markdown(row_html, unsafe_allow_html=True)
 
         # ----------------------
         # 8️⃣ Active Cycle Tracker (last 7 days)
