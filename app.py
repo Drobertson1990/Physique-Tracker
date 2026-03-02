@@ -547,42 +547,42 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
         doses["date"] = pd.to_datetime(doses["date"])
         doses["week"] = doses["date"].dt.isocalendar().week
 
-# ----------------------
-# 7️⃣ Weekly Compound Dashboard (Responsive Grid)
-# ----------------------
-st.subheader("📅 Weekly Compound Dashboard")
+    # ----------------------
+    # 7️⃣ Weekly Compound Dashboard (Responsive Grid)
+    # ----------------------
+    st.subheader("📅 Weekly Compound Dashboard")
 
-# Merge preloaded + custom compounds for category lookup
-all_compounds_info = {**preloaded_compounds, **st.session_state.custom_compounds}
+    # Merge preloaded + custom compounds for category lookup
+    all_compounds_info = {**preloaded_compounds, **st.session_state.custom_compounds}
 
-# Group weekly totals
-weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index()
+    # Group weekly totals
+    weekly_summary = doses.groupby(["compound", "week"])["amount"].sum().reset_index()
 
-# Define category colors
-category_colors = {
+    # Define category colors
+    category_colors = {
     "Peptide": "#ADD8E6",           # light blue
     "Peptide Hormone": "#1E90FF",   # blue
     "AAS": "#FFA500",                # orange
     "Custom": "#90EE90",            # light green
     "Other": "#D3D3D3"               # grey
-}
+    }
 
-# Determine number of columns per row
-cols_per_row = 4
-compound_cards = []
+    # Determine number of columns per row
+    cols_per_row = 4
+    compound_cards = []
 
-for compound in weekly_summary["compound"].unique():
-    comp_data = weekly_summary[weekly_summary["compound"] == compound]
-    total_amount = comp_data["amount"].sum()
-    last_week = comp_data["week"].max()
+    for compound in weekly_summary["compound"].unique():
+        comp_data = weekly_summary[weekly_summary["compound"] == compound]
+        total_amount = comp_data["amount"].sum()
+        last_week = comp_data["week"].max()
     
-    # Determine category
-    if compound in all_compounds_info:
-        category = all_compounds_info[compound].get("Category", "Other")
-    else:
-        category = "Custom"
+        # Determine category
+        if compound in all_compounds_info:
+            category = all_compounds_info[compound].get("Category", "Other")
+        else:
+            category = "Custom"
     
-    color = category_colors.get(category, "#D3D3D3")
+        color = category_colors.get(category, "#D3D3D3")
 
     # Build card HTML
     card_html = f"""
@@ -606,17 +606,17 @@ for i in range(0, len(compound_cards), cols_per_row):
     row_html = "<div style='display:flex; flex-wrap: wrap;'>" + "".join(compound_cards[i:i+cols_per_row]) + "</div>"
     st.markdown(row_html, unsafe_allow_html=True)
 
-        # ----------------------
-        # 8️⃣ Active Cycle Tracker (last 7 days)
-        # ----------------------
-        st.subheader("🟢 Active Cycles (Last 7 Days)")
-        cutoff = pd.Timestamp.today() - pd.Timedelta(days=7)
-        active_compounds = doses[doses["date"] >= cutoff]
-        if active_compounds.empty:
-            st.info("No active compounds in the past 7 days")
-        else:
-            for c in active_compounds["compound"].unique():
-                st.success(f"{c} active in last 7 days")
+    # ----------------------
+    # Active Cycle Tracker (last 7 days)
+    # ----------------------
+    st.subheader("🟢 Active Cycles (Last 7 Days)")
+    cutoff = pd.Timestamp(datetime.date.today() - pd.Timedelta(days=7))
+    active_compounds = doses[doses["date"] >= cutoff]
+    if active_compounds.empty:
+        st.info("No active compounds in the past 7 days")
+    else:
+        for c in active_compounds["compound"].unique():
+            st.success(f"{c} active in last 7 days")
 
         # ----------------------
         # 9️⃣ Graph Type Selector
