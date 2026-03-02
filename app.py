@@ -318,22 +318,32 @@ def login_user(user):
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
-    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Settings ⚙️", "Logout"]
+    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉",
+             "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
 
-    # ensure page is valid
+    # If the stored page is invalid, default to Home
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    selected_page = st.sidebar.selectbox("Navigation", pages, index=pages.index(st.session_state.page))
+    # Safely get index
+    try:
+        current_index = pages.index(st.session_state.page)
+    except ValueError:
+        current_index = 0
+        st.session_state.page = pages[0]
+
+    selected_page = st.sidebar.selectbox("Navigation", pages, index=current_index)
+
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
+        st.experimental_rerun()
 
-    # Logout
+    # Logout logic
     if st.session_state.page == "Logout":
-        for key in ["logged_in", "user_id", "user_email"]:
-            st.session_state[key] = None
-        st.session_state.page = "Home 🏠"
+        for key in ["logged_in", "user_id", "user_email", "page"]:
+            st.session_state[key] = None if key != "page" else "Home 🏠"
         st.success("Logged out successfully")
+        st.experimental_rerun()
 
 # ----------------------
 # LOGIN FORM
