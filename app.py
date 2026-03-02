@@ -699,51 +699,58 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Meals"
             session.commit()
             st.success(f"{food_name} logged!")
 
-    # ----------------------
-    # 4️⃣ Fetch Logged Meals
-    # ----------------------
-    meals = pd.read_sql(
-        session.query(MealLog).filter_by(user_id=user_id).statement,
-        engine
-    )
-    if meals.empty:
-        st.info("No meals logged yet.")
-    else:
-        meals["date"] = pd.to_datetime(meals["date"])
-        meals["week"] = meals["date"].dt.isocalendar().week
-
-        # ----------------------
-        # 5️⃣ Graph Type Selection
-        # ----------------------
-        graph_type = st.selectbox("Select Graph Type", ["Bar", "Line", "Area"])
-
 # ----------------------
-# 6️⃣Today's Macro Progress Bars with Indicators
+# 4️⃣ Fetch Logged Meals
 # ----------------------
-st.subheader("🍽 Today's Macro Progress")
-if not today_meals.empty:
-    daily_totals = today_meals[["calories","protein","carbs","fats"]].sum()
-    
-    macro_order = ["Calories", "Protein", "Carbs", "Fats"]
-    colors = {"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
+meals = pd.read_sql(
+    session.query(MealLog).filter_by(user_id=user_id).statement,
+    engine
+)
 
-    for macro in macro_order:
-        macro_lower = macro.lower()
-        target = st.session_state.macro_targets.get(macro, 0)
-        actual = daily_totals.get(macro_lower, 0)
-        pct = min(actual / target, 1.0)  # cap at 100% for progress bar
+if meals.empty:
+    st.info("No meals logged yet.")
+else:
+    # Convert date column to datetime
+    meals["date"] = pd.to_datetime(meals["date"])
+    meals["week"] = meals["date"].dt.isocalendar().week
 
-        # Display progress bar with color
-        st.markdown(f"**{macro}: {actual:.0f} / {target} ({pct*100:.0f}%)**")
-        st.progress(pct)
+    # ----------------------
+    # Get today's meals
+    # ----------------------
+    today = pd.Timestamp(datetime.date.today())
+    today_meals = meals[meals["date"] == today]
 
-        # Surplus / Deficit indicator
-        if actual < target:
-            st.warning(f"{macro} is under target by {target - actual:.0f} g")
-        elif actual > target:
-            st.success(f"{macro} is over target by {actual - target:.0f} g")
-        else:
-            st.info(f"{macro} meets the target exactly")
+    # ----------------------
+    # 5️⃣ Graph Type Selection
+    # ----------------------
+    graph_type = st.selectbox("Select Graph Type", ["Bar", "Line", "Area"])
+
+    # ----------------------
+    # 6️⃣ Today's Macro Progress Bars with Indicators
+    # ----------------------
+    st.subheader("🍽 Today's Macro Progress")
+    if not today_meals.empty:
+        daily_totals = today_meals[["calories","protein","carbs","fats"]].sum()
+
+        macro_order = ["Calories", "Protein", "Carbs", "Fats"]
+        colors = {"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
+
+        for macro in macro_order:
+            macro_lower = macro.lower()
+            target = st.session_state.macro_targets.get(macro, 0)
+            actual = daily_totals.get(macro_lower, 0)
+            pct = min(actual / target, 1.0)  # cap at 100% for progress bar
+
+            st.markdown(f"**{macro}: {actual:.0f} / {target} ({pct*100:.0f}%)**")
+            st.progress(pct)
+
+            # Surplus / Deficit indicator
+            if actual < target:
+                st.warning(f"{macro} is under target by {target - actual:.0f} g")
+            elif actual > target:
+                st.success(f"{macro} is over target by {actual - target:.0f} g")
+            else:
+                st.info(f"{macro} meets the target exactly")
 
 # ----------------------
 # 7️⃣ Elite Weekly Nutrition System
