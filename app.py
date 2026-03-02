@@ -288,51 +288,98 @@ with engine.begin() as conn:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
 
 # ----------------------
-# SIDEBAR NAVIGATION (Modern Buttons)
+# STREAMLIT PAGE CONFIG
 # ----------------------
+st.set_page_config(page_title="Physique Tracker", layout="wide")
 
-st.sidebar.title("👋 Welcome")
-
-# Show logged-in user
-user_name = st.session_state.get("user_name") or st.session_state.get("user_email") or "Guest"
-st.sidebar.markdown(f"### {user_name}")
-st.sidebar.markdown("---")
-
-# Define pages and icons
-pages = [
-    ("Home 🏠", "home"),
-    ("Dosing 💉", "droplet"),
-    ("Meals 🍽", "utensils"),
-    ("Workouts 🏋️‍♂️", "dumbbell"),
-    ("Bloodwork 🩸", "flask"),
-    ("Photos 📸", "camera"),
-    ("Dashboard 📊", "bar-chart"),
-    ("Settings ⚙️", "gear"),
-    ("Logout 🔒", "log-out")
-]
-
-# Initialize session_state.page safely
+# ----------------------
+# SESSION STATE INIT
+# ----------------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
 if "page" not in st.session_state:
     st.session_state.page = "Home 🏠"
 
-# Create buttons for each page
-st.sidebar.markdown("### Navigate")
-for page_label, icon in pages:
-    if st.sidebar.button(page_label):
-        st.session_state.page = page_label
-        if page_label.startswith("Logout"):
-            # Reset session state
-            st.session_state.logged_in = False
-            st.session_state.user_id = None
-            st.session_state.user_email = ""
-            st.session_state.page = "Home 🏠"
-            st.success("Logged out successfully")
+# ----------------------
+# USER AUTH / LOGIN
+# ----------------------
+def login_user(user):
+    st.session_state.logged_in = True
+    st.session_state.user_id = user.id
+    st.session_state.user_email = user.email
+    st.session_state.page = "Home 🏠"
+    st.experimental_rerun()
+
+st.sidebar.title("User Authentication")
+if not st.session_state.logged_in:
+    auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
+    email_input = st.sidebar.text_input("Email")
+    password_input = st.sidebar.text_input("Password", type="password")
+
+    if st.sidebar.button(auth_mode):
+        if not email_input.strip() or not password_input.strip():
+            st.sidebar.error("Enter email and password")
+            st.stop()
+
+        if auth_mode == "Register":
+            existing = session.query(User).filter_by(email=email_input).first()
+            if existing:
+                st.sidebar.error("User already exists")
+            else:
+                new_user = User(email=email_input)
+                new_user.set_password(password_input)
+                session.add(new_user)
+                session.commit()
+                st.sidebar.success("User registered! You can now log in.")
+
+        if auth_mode == "Login":
+            user = session.query(User).filter_by(email=email_input).first()
+            if user and user.check_password(password_input):
+                login_user(user)
+            else:
+                st.sidebar.error("Invalid credentials")
+
+# ----------------------
+# SIDEBAR NAVIGATION AFTER LOGIN
+# ----------------------
+if st.session_state.logged_in:
+    st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
+    page_names = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
+
+    # Ensure current page exists in the list
+    if st.session_state.page not in page_names:
+        st.session_state.page = "Home 🏠"
+
+    selected_page = st.sidebar.selectbox(
+        "Navigation",
+        page_names,
+        index=page_names.index(st.session_state.page),
+        key="nav_select"
+    )
+
+    if selected_page != st.session_state.page:
+        st.session_state.page = selected_page
+        st.experimental_rerun()
+
+    # Handle Logout
+    if st.session_state.page == "Logout":
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.user_email = ""
+        st.session_state.page = "Home 🏠"
+        st.success("Logged out successfully")
         st.experimental_rerun()
 
 # ----------------------
 # HOME PAGE
 # ----------------------
-if st.session_state.get("page", "Home 🏠").startswith("Home"):
+page = st.session_state.page
+
+if page.startswith("Home"):
     st.title("🏠 Home Dashboard")
 
     # Placeholder daily totals (replace later with DB query)
@@ -351,8 +398,6 @@ if st.session_state.get("page", "Home 🏠").startswith("Home"):
 
     st.subheader("🔥 Daily Macro Progress")
     cols = st.columns(4)
-    macro_colors = {"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
-
     for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
         actual = daily_totals.get(macro, 0)
         target = daily_targets.get(macro, 0)
@@ -366,19 +411,23 @@ if st.session_state.get("page", "Home 🏠").startswith("Home"):
     st.subheader("⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
     if col1.button("🍽 Log Meal"):
-        st.session_state.page = "Meals"
+        st.session_state.page = "Meals 🍽"
+        st.experimental_rerun()
     if col2.button("🏋️‍♂️ Log Workout"):
-        st.session_state.page = "Workouts"
+        st.session_state.page = "Workouts 🏋️‍♂️"
+        st.experimental_rerun()
     if col3.button("💉 Log Dose"):
-        st.session_state.page = "Dosing"
+        st.session_state.page = "Dosing 💉"
+        st.experimental_rerun()
     if col4.button("📊 View Progress"):
-        st.session_state.page = "Dashboard"
+        st.session_state.page = "Dashboard 📊"
+        st.experimental_rerun()
 
     st.markdown("---")
 
     # Weekly Compliance Snapshot
     st.subheader("🏆 Weekly Nutrition Snapshot")
-    weekly_score = 88  # placeholder, replace with actual calculation
+    weekly_score = 88  # placeholder
     st.metric("Compliance Score", f"{weekly_score}/100")
 
     # Mini weekly macro chart
@@ -389,7 +438,6 @@ if st.session_state.get("page", "Home 🏠").startswith("Home"):
         "Carbs":[250, 270, 230, 280, 260, 240, 250],
         "Fats":[65, 70, 60, 75, 68, 63, 66]
     })
-
     fig_week = px.bar(
         weekly_data,
         x="Day",
@@ -403,7 +451,7 @@ if st.session_state.get("page", "Home 🏠").startswith("Home"):
 
     # Recent Meals
     st.subheader("🍴 Recent Meals")
-    recent_meals = ["Chicken Breast", "Oatmeal", "Salmon", "Brown Rice"]  # placeholder
+    recent_meals = ["Chicken Breast", "Oatmeal", "Salmon", "Brown Rice"]
     for meal in recent_meals:
         st.write(f"- {meal}")
         
