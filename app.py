@@ -590,11 +590,39 @@ if st.session_state.get("logged_in") and st.session_state.get("page") == "Dosing
 # ----------------------
 # MEALS & CALORIE TRACKER PAGE
 # ----------------------
-if st.session_state.logged_in and page == "Meals":
-    st.header("Meals & Calorie Tracker")
-    st.info("Add your meals logic here")
-    
-    # Default foods
+if st.session_state.get("logged_in") and st.session_state.get("page") == "Meals":
+    st.header("🍽 Meals & Calorie Tracker")
+
+    import datetime
+    import pandas as pd
+    import plotly.express as px
+
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        st.info("Please log in to view this page.")
+        st.stop()
+
+    # ----------------------
+    # 1️⃣ Dynamic Daily Targets
+    # ----------------------
+    if "macro_targets" not in st.session_state:
+        st.session_state.macro_targets = {
+            "Calories": 2500,
+            "Protein": 200,
+            "Carbs": 300,
+            "Fats": 70
+        }
+
+    st.subheader("Daily Macro Targets")
+    col1, col2, col3, col4 = st.columns(4)
+    st.session_state.macro_targets["Calories"] = col1.number_input("Calories", min_value=0, value=st.session_state.macro_targets["Calories"])
+    st.session_state.macro_targets["Protein"] = col2.number_input("Protein (g)", min_value=0, value=st.session_state.macro_targets["Protein"])
+    st.session_state.macro_targets["Carbs"] = col3.number_input("Carbs (g)", min_value=0, value=st.session_state.macro_targets["Carbs"])
+    st.session_state.macro_targets["Fats"] = col4.number_input("Fats (g)", min_value=0, value=st.session_state.macro_targets["Fats"])
+
+    # ----------------------
+    # 2️⃣ Default Foods
+    # ----------------------
     default_foods = {
         "Chicken Breast (100g)": {"Calories":165, "Protein":31, "Carbs":0, "Fats":3.6},
         "Egg (1 large)": {"Calories":70, "Protein":6, "Carbs":0.4, "Fats":5},
@@ -605,7 +633,7 @@ if st.session_state.logged_in and page == "Meals":
         "Salmon (100g)": {"Calories":208, "Protein":20, "Carbs":0, "Fats":13},
     }
 
-    # Fetch user foods
+    # Fetch user foods from DB
     user_foods = pd.read_sql(
         session.query(FoodItem).filter_by(user_id=user_id).statement,
         engine
@@ -618,16 +646,15 @@ if st.session_state.logged_in and page == "Meals":
     all_foods = {**default_foods, **user_food_dict}
     food_options = list(all_foods.keys()) + ["Add Custom Food"]
 
-    food_choice = st.selectbox("Select Food", food_options, key="food_choice")
-    food_name = st.text_input("Food Name", key="custom_food_name")
-    calories = st.number_input("Calories", min_value=0, key="food_calories")
-    protein = st.number_input("Protein (g)", min_value=0, key="food_protein")
-    carbs = st.number_input("Carbs (g)", min_value=0, key="food_carbs")
-    fats = st.number_input("Fats (g)", min_value=0, key="food_fats")
-    quantity = st.number_input("Quantity", min_value=1, value=1, key="food_quantity")
-    date = st.date_input("Date", datetime.date.today(), key="meal_date")
-    st.button("Log Meal", key="log_meal_btn")
+    # ----------------------
+    # 3️⃣ Log Meals
+    # ----------------------
+    st.subheader("Log a Meal")
+    food_choice = st.selectbox("Select Food", food_options)
+    quantity = st.number_input("Quantity", min_value=1, value=1)
+    date = st.date_input("Date", datetime.date.today())
 
+    # Custom food input
     if food_choice == "Add Custom Food":
         food_name = st.text_input("Food Name")
         calories = st.number_input("Calories", min_value=0)
@@ -642,10 +669,10 @@ if st.session_state.logged_in and page == "Meals":
         fats = all_foods[food_choice]["Fats"]
 
     if st.button("Log Meal"):
-        if food_name.strip() == "" or calories <= 0:
+        if not food_name or calories <= 0:
             st.error("Enter a valid food and calories")
         else:
-            # Save custom food if not default
+            # Save custom food if new
             if food_choice == "Add Custom Food":
                 exists = session.query(FoodItem).filter_by(name=food_name, user_id=user_id).first()
                 if not exists:
@@ -660,7 +687,7 @@ if st.session_state.logged_in and page == "Meals":
                     session.commit()
                     st.success(f"Custom food '{food_name}' saved!")
 
-            # Log the meal
+            # Log meal
             session.add(MealLog(
                 user_id=user_id,
                 meal=food_name,
@@ -673,57 +700,124 @@ if st.session_state.logged_in and page == "Meals":
             session.commit()
             st.success(f"{food_name} logged!")
 
-    # -----------------------
-    # FETCH LOGGED MEALS
-    # -----------------------
+    # ----------------------
+    # 4️⃣ Fetch Logged Meals
+    # ----------------------
     meals = pd.read_sql(
         session.query(MealLog).filter_by(user_id=user_id).statement,
         engine
     )
-
     if meals.empty:
         st.info("No meals logged yet.")
     else:
-        meals["week"] = pd.to_datetime(meals["date"]).dt.isocalendar().week
+        meals["date"] = pd.to_datetime(meals["date"])
+        meals["week"] = meals["date"].dt.isocalendar().week
 
-        # Daily Pie Chart
-        st.subheader("Today's Macro Breakdown")
-        today = datetime.date.today()
-        today_meals = meals[meals["date"] == pd.to_datetime(today)]
+        # ----------------------
+        # 5️⃣ Graph Type Selection
+        # ----------------------
+        graph_type = st.selectbox("Select Graph Type", ["Bar", "Line", "Area"])
+
+        # ----------------------
+        # 6️⃣ Today's Macros vs Target
+        # ----------------------
+        st.subheader("Today's Macro Progress")
+        today = pd.Timestamp(datetime.date.today())
+        today_meals = meals[meals["date"] == today]
         if not today_meals.empty:
-            daily_totals = today_meals[["protein","carbs","fats"]].sum()
-            fig_pie = px.pie(
-                values=daily_totals.values,
-                names=daily_totals.index,
-                title=f"Macros for {today}"
-            )
-            st.plotly_chart(fig_pie)
+            daily_totals = today_meals[["calories","protein","carbs","fats"]].sum()
+            for macro in ["calories","protein","carbs","fats"]:
+                target = st.session_state.macro_targets[macro.capitalize()]
+                pct = daily_totals[macro]/target*100
+                st.write(f"{macro.capitalize()}: {daily_totals[macro]:.0f} / {target} ({pct:.0f}%)")
+                st.progress(min(int(pct), 100))
 
-        # Daily stacked macro chart
-        st.subheader("Daily Macros Over Time")
-        daily_summary = meals.groupby("date")[["protein","carbs","fats"]].sum().reset_index()
-        fig_daily = px.bar(
-            daily_summary,
-            x="date",
-            y=["protein","carbs","fats"],
-            title="Daily Macros",
-            labels={"value":"Grams", "date":"Date"},
-            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
-        )
-        st.plotly_chart(fig_daily)
+# ----------------------
+# 7️⃣ Weekly Macro Trends & Insights
+# ----------------------
+st.subheader("📊 Weekly Macro Trend & Progress")
 
-        # Weekly stacked macro chart
-        st.subheader("Weekly Macros")
-        weekly_summary = meals.groupby("week")[["protein","carbs","fats"]].sum().reset_index()
-        fig_weekly = px.bar(
-            weekly_summary,
-            x="week",
-            y=["protein","carbs","fats"],
-            title="Weekly Macros",
-            labels={"value":"Grams", "week":"Week"},
-            color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"}
-        )
-        st.plotly_chart(fig_weekly)
+# Example targets (replace with your user targets if available)
+daily_targets = {
+    "Calories": 2500,
+    "Protein": 150,
+    "Carbs": 300,
+    "Fats": 70
+}
+
+# Convert meals 'date' to datetime if not already
+meals["date"] = pd.to_datetime(meals["date"])
+
+# Filter meals for current week
+today = datetime.date.today()
+current_week = today.isocalendar()[1]
+weekly_meals = meals[meals["week"] == current_week]
+
+if weekly_meals.empty:
+    st.info("No meals logged this week.")
+else:
+    # Weekly totals and averages
+    weekly_totals = weekly_meals[["calories","protein","carbs","fats"]].sum()
+    weekly_avg = weekly_meals[["calories","protein","carbs","fats"]].mean()
+
+    st.markdown("**Weekly Totals vs Targets**")
+    for macro in ["calories","protein","carbs","fats"]:
+        target = daily_targets[macro.capitalize()] * 7  # weekly target
+        value = weekly_totals[macro]
+        st.write(f"{macro.capitalize()}: {value:.0f} / {target} ({value/target*100:.1f}%)")
+        st.progress(min(value/target, 1.0))
+
+    st.markdown("**Weekly Average Daily Intake vs Daily Targets**")
+    avg_df = pd.DataFrame({
+        "Macro": ["Calories","Protein","Carbs","Fats"],
+        "Avg Intake": [weekly_avg["calories"], weekly_avg["protein"], weekly_avg["carbs"], weekly_avg["fats"]],
+        "Daily Target": [daily_targets["Calories"], daily_targets["Protein"], daily_targets["Carbs"], daily_targets["Fats"]]
+    })
+
+    # Bar chart comparison
+    fig_weekly_trend = px.bar(
+        avg_df.melt(id_vars="Macro", value_vars=["Avg Intake","Daily Target"]),
+        x="Macro",
+        y="value",
+        color="variable",
+        barmode="group",
+        labels={"value":"Amount","variable":""},
+        title="Average Daily Intake vs Targets"
+    )
+    st.plotly_chart(fig_weekly_trend, use_container_width=True)
+
+    # Macro trend insights
+    for idx, row in avg_df.iterrows():
+        if row["Avg Intake"] < row["Daily Target"]*0.9:
+            st.warning(f"Your {row['Macro']} is below target! Consider adding more.")
+        elif row["Avg Intake"] > row["Daily Target"]*1.1:
+            st.error(f"Your {row['Macro']} is above target! Consider reducing intake.")
+        else:
+            st.success(f"Your {row['Macro']} is on track ✅")
+
+        # ----------------------
+        # 8️⃣ Weekly Macro Trends
+        # ----------------------
+        st.subheader("Weekly Macro Trends")
+        weekly_summary = meals.groupby("week")[["protein","carbs","fats","calories"]].sum().reset_index()
+        if not weekly_summary.empty:
+            if graph_type == "Bar":
+                fig_weekly = px.bar(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
+            elif graph_type == "Line":
+                fig_weekly = px.line(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
+            else:
+                fig_weekly = px.area(weekly_summary, x="week", y=["protein","carbs","fats"], title="Weekly Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
+            st.plotly_chart(fig_weekly, use_container_width=True)
+
+        # ----------------------
+        # 9️⃣ Rolling 7-Day Averages
+        # ----------------------
+        st.subheader("7-Day Rolling Average")
+        meals_sorted = meals.sort_values("date")
+        rolling = meals_sorted[["date","protein","carbs","fats"]].set_index("date").rolling(7).mean().reset_index()
+        if not rolling.empty:
+            fig_rolling = px.line(rolling, x="date", y=["protein","carbs","fats"], title="7-Day Rolling Average Macros", color_discrete_map={"protein":"#EF553B","carbs":"#636EFA","fats":"#00CC96"})
+            st.plotly_chart(fig_rolling, use_container_width=True)
         
 # ----------------------
 # WORKOUT PAGE
