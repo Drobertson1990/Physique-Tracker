@@ -288,7 +288,7 @@ with engine.begin() as conn:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
 
 # ----------------------
-# STREAMLIT PAGE CONFIG
+# STREAMLIT CONFIG
 # ----------------------
 st.set_page_config(page_title="Physique Tracker", layout="wide")
 
@@ -305,14 +305,13 @@ for key in ["logged_in", "user_id", "user_email", "page"]:
             st.session_state[key] = None
 
 # ----------------------
-# USER AUTH / LOGIN
+# USER AUTH
 # ----------------------
 def login_user(user):
     st.session_state.logged_in = True
     st.session_state.user_id = user.id
     st.session_state.user_email = user.email
     st.session_state.page = "Home 🏠"
-    st.experimental_rerun()
 
 # ----------------------
 # SIDEBAR NAVIGATION
@@ -321,31 +320,50 @@ if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
     pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Settings ⚙️", "Logout"]
 
-    # Ensure the current page is valid
+    # ensure page is valid
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    # Selectbox for navigation
     selected_page = st.sidebar.selectbox("Navigation", pages, index=pages.index(st.session_state.page))
-
-    # Update session state if different
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
-        try:
-            st.experimental_rerun()
-        except RuntimeError:
-            pass  # Prevent rerun error if already inside a rerun
 
-    # Logout logic
+    # Logout
     if st.session_state.page == "Logout":
         for key in ["logged_in", "user_id", "user_email"]:
             st.session_state[key] = None
         st.session_state.page = "Home 🏠"
         st.success("Logged out successfully")
-        try:
-            st.experimental_rerun()
-        except RuntimeError:
-            pass
+
+# ----------------------
+# LOGIN FORM
+# ----------------------
+if not st.session_state.logged_in:
+    st.sidebar.subheader("Login / Register")
+    auth_mode = st.sidebar.radio("Action", ["Login", "Register"])
+    email_input = st.sidebar.text_input("Email")
+    password_input = st.sidebar.text_input("Password", type="password")
+
+    if st.sidebar.button(auth_mode):
+        if not email_input or not password_input:
+            st.sidebar.error("Enter email and password")
+        else:
+            if auth_mode == "Register":
+                if session.query(User).filter_by(email=email_input).first():
+                    st.sidebar.error("User already exists")
+                else:
+                    new_user = User(email=email_input)
+                    new_user.set_password(password_input)
+                    session.add(new_user)
+                    session.commit()
+                    st.sidebar.success("User registered! Please log in.")
+            else:  # Login
+                user = session.query(User).filter_by(email=email_input).first()
+                if user and user.check_password(password_input):
+                    login_user(user)
+                else:
+                    st.sidebar.error("Invalid credentials")
+
 # ----------------------
 # PAGE ROUTING
 # ----------------------
@@ -353,158 +371,65 @@ page = st.session_state.page
 user_id = st.session_state.user_id
 
 # ----------------------
-# HOME + DASHBOARD
+# HOME / DASHBOARD MERGED
 # ----------------------
 if page == "Home 🏠":
-    st.title("🏠 Dashboard Overview")
+    st.title("🏠 Home Dashboard")
 
     # Quick Actions
     st.subheader("⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
     if col1.button("🍽 Log Meal"):
         st.session_state.page = "Meals 🍽"
-        st.experimental_rerun()
     if col2.button("🏋️‍♂️ Log Workout"):
         st.session_state.page = "Workouts 🏋️‍♂️"
-        st.experimental_rerun()
     if col3.button("💉 Log Dose"):
         st.session_state.page = "Dosing 💉"
-        st.experimental_rerun()
-    if col4.button("📊 Refresh Dashboard"):
-        st.experimental_rerun()
+    if col4.button("📊 View Progress"):
+        st.session_state.page = "Dashboard 📊"
 
+    # Dashboard Overview
     st.markdown("---")
+    st.subheader("Recent Doses")
+    recent_doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent_doses)
 
-    # Fetch user logs
-    try:
-        doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(7).statement, engine)
-        meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(100).statement, engine)
-        workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(7).statement, engine)
-    except Exception as e:
-        st.error(f"Database read error: {e}")
-        st.stop()
+    st.subheader("Recent Meals")
+    recent_meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent_meals)
 
-    # ----------------------
-    # Summary Metrics
-    # ----------------------
-    st.subheader("📊 Summary Metrics")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Doses Logged", len(doses))
-    col2.metric("Meals Logged", len(meals))
-    col3.metric("Workouts Logged", len(workouts))
-
-    st.markdown("---")
-
-    # ----------------------
-    # Daily Macro Progress
-    # ----------------------
-    st.subheader("🔥 Daily Macro Progress")
-    today = datetime.date.today()
-    today_meals = meals[meals['date'] == pd.Timestamp(today)]
-    daily_totals = {
-        "Calories": today_meals["calories"].sum() if not today_meals.empty else 0,
-        "Protein": today_meals["protein"].sum() if not today_meals.empty else 0,
-        "Carbs": today_meals["carbs"].sum() if not today_meals.empty else 0,
-        "Fats": today_meals["fats"].sum() if not today_meals.empty else 0
-    }
-    daily_targets = st.session_state.get("macro_targets", {"Calories":2500,"Protein":200,"Carbs":300,"Fats":70})
-    cols = st.columns(4)
-    for i, macro in enumerate(["Calories","Protein","Carbs","Fats"]):
-        actual = daily_totals.get(macro,0)
-        target = daily_targets.get(macro,0)
-        pct = min(actual/target,1.0) if target>0 else 0
-        cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
-        cols[i].progress(pct)
-
-    # ----------------------
-    # Weekly Compliance
-    # ----------------------
-    st.markdown("---")
-    st.subheader("🏆 Weekly Nutrition Compliance")
-
-    week_start = today - datetime.timedelta(days=today.weekday())
-    week_end = week_start + datetime.timedelta(days=6)
-    week_meals = meals[(meals['date'] >= pd.Timestamp(week_start)) & (meals['date'] <= pd.Timestamp(week_end))]
-
-    weekly_score = 0
-    if not week_meals.empty:
-        day_scores = []
-        for day in pd.date_range(week_start, week_end):
-            day_meals = week_meals[week_meals['date'] == pd.Timestamp(day)]
-            if day_meals.empty:
-                day_scores.append(0)
-            else:
-                pct = sum(day_meals[["calories","protein","carbs","fats"]].sum()/pd.Series(daily_targets)) / 4
-                day_scores.append(min(pct,1.0))
-        weekly_score = int(sum(day_scores)/len(day_scores)*100)
-    st.metric("Compliance Score", f"{weekly_score}/100")
-
-    # ----------------------
-    # Weekly Macro Chart
-    # ----------------------
-    st.markdown("---")
-    st.subheader("📅 Weekly Macro Overview")
-    weekly_data = []
-    for day in pd.date_range(week_start, week_end):
-        day_meals = week_meals[week_meals['date'] == pd.Timestamp(day)]
-        weekly_data.append({
-            "Day": day.strftime("%a"),
-            "Calories": day_meals["calories"].sum() if not day_meals.empty else 0,
-            "Protein": day_meals["protein"].sum() if not day_meals.empty else 0,
-            "Carbs": day_meals["carbs"].sum() if not day_meals.empty else 0,
-            "Fats": day_meals["fats"].sum() if not day_meals.empty else 0
-        })
-    weekly_df = pd.DataFrame(weekly_data)
-
-    fig_week = px.bar(
-        weekly_df,
-        x="Day",
-        y=["Calories","Protein","Carbs","Fats"],
-        barmode="group",
-        title="Weekly Macro Overview",
-        color_discrete_map={"Calories":"#FFA15A","Protein":"#EF553B","Carbs":"#636EFA","Fats":"#00CC96"}
-    )
-    st.plotly_chart(fig_week, use_container_width=True)
-
-    # ----------------------
-    # Recent Logs
-    # ----------------------
-    st.markdown("---")
-    st.subheader("🍴 Recent Meals")
-    st.dataframe(today_meals if not today_meals.empty else pd.DataFrame({"Info":["No meals logged today."]}))
-
-    st.subheader("🏋️‍♂️ Recent Workouts")
-    st.dataframe(workouts.head(7) if not workouts.empty else pd.DataFrame({"Info":["No workouts logged yet."]}))
-
-    st.subheader("💉 Recent Doses")
-    st.dataframe(doses.head(7) if not doses.empty else pd.DataFrame({"Info":["No doses logged yet."]}))
+    st.subheader("Recent Workouts")
+    recent_workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent_workouts)
 
 # ----------------------
-# OTHER PAGES
+# DOSING PAGE
 # ----------------------
 elif page == "Dosing 💉":
     st.title("💉 Dosing")
-    st.write("Log your doses here")
     with st.form("dose_form"):
         compound = st.text_input("Compound")
         amount = st.number_input("Amount", min_value=0.0, step=0.1)
         date = st.date_input("Date", datetime.date.today())
         submitted = st.form_submit_button("Log Dose")
         if submitted:
-            if compound and amount>0:
+            if compound and amount > 0:
                 new_dose = Dose(user_id=user_id, compound=compound, amount=amount, date=date)
                 session.add(new_dose)
                 session.commit()
                 st.success(f"Dose logged: {compound} {amount}")
             else:
                 st.error("Enter a valid compound and amount")
-    recent = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
+
     st.subheader("Recent Doses")
+    recent = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
 
+# ----------------------
+# MEALS PAGE
+# ----------------------
 elif page == "Meals 🍽":
     st.title("🍽 Meals")
-    st.write("Log your meals")
     with st.form("meal_form"):
         meal_name = st.text_input("Meal Name")
         calories = st.number_input("Calories", min_value=0.0)
@@ -518,13 +443,16 @@ elif page == "Meals 🍽":
             session.add(new_meal)
             session.commit()
             st.success(f"Meal logged: {meal_name}")
-    recent = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
+
     st.subheader("Recent Meals")
+    recent = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
 
+# ----------------------
+# WORKOUTS PAGE
+# ----------------------
 elif page == "Workouts 🏋️‍♂️":
     st.title("🏋️‍♂️ Workouts")
-    st.write("Log your workouts")
     with st.form("workout_form"):
         exercise = st.text_input("Exercise")
         sets = st.number_input("Sets", min_value=1)
@@ -537,18 +465,28 @@ elif page == "Workouts 🏋️‍♂️":
             session.add(new_w)
             session.commit()
             st.success(f"Workout logged: {exercise}")
-    recent = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
+
     st.subheader("Recent Workouts")
+    recent = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
 
+# ----------------------
+# BLOODWORK PAGE
+# ----------------------
 elif page == "Bloodwork 🩸":
     st.title("🩸 Bloodwork")
     st.write("Log your bloodwork")
 
+# ----------------------
+# PHOTOS PAGE
+# ----------------------
 elif page == "Photos 📸":
     st.title("📸 Photos")
     st.write("Upload and view progress photos")
 
+# ----------------------
+# SETTINGS PAGE
+# ----------------------
 elif page == "Settings ⚙️":
     st.title("⚙️ Settings")
     st.write("User settings go here.")
