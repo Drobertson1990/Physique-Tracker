@@ -313,59 +313,30 @@ def login_user(user):
     st.session_state.user_email = user.email
     st.session_state.page = "Home 🏠"
 
-st.sidebar.title("User Authentication")
-
-if not st.session_state.logged_in:
-    auth_mode = st.sidebar.radio("Select Action", ["Login", "Register"])
-    email_input = st.sidebar.text_input("Email")
-    password_input = st.sidebar.text_input("Password", type="password")
-
-    if st.sidebar.button(auth_mode):
-        if not email_input.strip() or not password_input.strip():
-            st.sidebar.error("Enter email and password")
-            st.stop()
-
-        if auth_mode == "Register":
-            existing = session.query(User).filter_by(email=email_input).first()
-            if existing:
-                st.sidebar.error("User already exists")
-            else:
-                new_user = User(email=email_input)
-                new_user.set_password(password_input)
-                session.add(new_user)
-                session.commit()
-                st.sidebar.success("User registered! You can now log in.")
-
-        elif auth_mode == "Login":
-            user = session.query(User).filter_by(email=email_input).first()
-            if user and user.check_password(password_input):
-                login_user(user)
-                st.experimental_rerun()  # rerun safely after setting session state
-            else:
-                st.sidebar.error("Invalid credentials")
-
 # ----------------------
-# SIDEBAR NAVIGATION AFTER LOGIN
+# SIDEBAR NAVIGATION
 # ----------------------
 if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
-    page_names = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
+    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉", "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
 
-    if st.session_state.page not in page_names:
+    # ensure page is valid
+    if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    selected_page = st.sidebar.selectbox(
-        "Navigation",
-        page_names,
-        index=page_names.index(st.session_state.page),
-        key="nav_select"
-    )
+    try:
+        current_index = pages.index(st.session_state.page)
+    except ValueError:
+        current_index = 0
+        st.session_state.page = pages[0]
+
+    selected_page = st.sidebar.selectbox("Navigation", pages, index=current_index)
 
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
         st.experimental_rerun()
 
-    # Handle Logout
+    # Logout logic
     if st.session_state.page == "Logout":
         for key in ["logged_in", "user_id", "user_email", "page"]:
             st.session_state[key] = None if key != "page" else "Home 🏠"
@@ -373,9 +344,10 @@ if st.session_state.logged_in:
         st.experimental_rerun()
 
 # ----------------------
-# ROUTING FOR PAGES
+# PAGE ROUTING
 # ----------------------
 page = st.session_state.page
+user_id = st.session_state.user_id
 
 # ----------------------
 # HOME PAGE
@@ -399,46 +371,100 @@ if page == "Home 🏠":
         st.experimental_rerun()
 
 # ----------------------
+# DOSING PAGE
+# ----------------------
+elif page == "Dosing 💉":
+    st.title("💉 Dosing")
+    st.write("Log your doses here")
+
+    # Simple form for logging a dose
+    with st.form("dose_form"):
+        compound = st.text_input("Compound")
+        amount = st.number_input("Amount", min_value=0.0, step=0.1)
+        date = st.date_input("Date", datetime.date.today())
+        submitted = st.form_submit_button("Log Dose")
+        if submitted:
+            if compound and amount > 0:
+                new_dose = Dose(user_id=user_id, compound=compound, amount=amount, date=date)
+                session.add(new_dose)
+                session.commit()
+                st.success(f"Dose logged: {compound} {amount}")
+            else:
+                st.error("Enter a valid compound and amount")
+
+    # Show last 5 doses
+    st.subheader("Recent Doses")
+    recent = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent)
+
+# ----------------------
 # MEALS PAGE
 # ----------------------
 elif page == "Meals 🍽":
     st.title("🍽 Meals")
-    st.write("Here you can log and view meals.")
+    st.write("Log your meals")
+
+    with st.form("meal_form"):
+        meal_name = st.text_input("Meal Name")
+        calories = st.number_input("Calories", min_value=0.0)
+        protein = st.number_input("Protein (g)", min_value=0.0)
+        carbs = st.number_input("Carbs (g)", min_value=0.0)
+        fats = st.number_input("Fats (g)", min_value=0.0)
+        date = st.date_input("Date", datetime.date.today())
+        submitted = st.form_submit_button("Log Meal")
+        if submitted:
+            new_meal = MealLog(user_id=user_id, meal=meal_name, calories=calories, protein=protein, carbs=carbs, fats=fats, date=date)
+            session.add(new_meal)
+            session.commit()
+            st.success(f"Meal logged: {meal_name}")
+
+    st.subheader("Recent Meals")
+    recent = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent)
 
 # ----------------------
 # WORKOUTS PAGE
 # ----------------------
 elif page == "Workouts 🏋️‍♂️":
     st.title("🏋️‍♂️ Workouts")
-    st.write("Here you can log and view workouts.")
+    st.write("Log your workouts")
 
-# ----------------------
-# DOSING PAGE
-# ----------------------
-elif page == "Dosing 💉":
-    st.title("💉 Dosing")
-    st.write("Here you can log your doses.")
+    with st.form("workout_form"):
+        exercise = st.text_input("Exercise")
+        sets = st.number_input("Sets", min_value=1)
+        reps = st.number_input("Reps", min_value=1)
+        weight = st.number_input("Weight", min_value=0.0)
+        date = st.date_input("Date", datetime.date.today())
+        submitted = st.form_submit_button("Log Workout")
+        if submitted:
+            new_w = Workout(user_id=user_id, exercise=exercise, sets=sets, reps=reps, weight=weight, date=date)
+            session.add(new_w)
+            session.commit()
+            st.success(f"Workout logged: {exercise}")
+
+    st.subheader("Recent Workouts")
+    recent = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
+    st.dataframe(recent)
 
 # ----------------------
 # BLOODWORK PAGE
 # ----------------------
 elif page == "Bloodwork 🩸":
     st.title("🩸 Bloodwork")
-    st.write("Here you can log and view bloodwork results.")
+    st.write("Log your bloodwork")
 
 # ----------------------
 # PHOTOS PAGE
 # ----------------------
 elif page == "Photos 📸":
     st.title("📸 Photos")
-    st.write("Here you can upload and view progress photos.")
+    st.write("Upload and view progress photos")
 
 # ----------------------
 # DASHBOARD PAGE
 # ----------------------
 elif page == "Dashboard 📊":
     st.title("📊 Dashboard Overview")
-    user_id = st.session_state.user_id
     try:
         doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).statement, engine)
         meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).statement, engine)
