@@ -295,17 +295,24 @@ st.set_page_config(page_title="Physique Tracker", layout="wide")
 # ----------------------
 # SESSION STATE INIT
 # ----------------------
-for key in ["logged_in", "user_id", "user_email", "page"]:
-    if key not in st.session_state:
-        if key == "page":
-            st.session_state[key] = "Home 🏠"
-        elif key == "logged_in":
-            st.session_state[key] = False
-        else:
-            st.session_state[key] = None
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+if "user_email" not in st.session_state:
+    st.session_state.user_email = ""
+if "page" not in st.session_state:
+    st.session_state.page = "Home 🏠"
+
+user_id = st.session_state.user_id
 
 # ----------------------
-# USER AUTH
+# STREAMLIT PAGE CONFIG
+# ----------------------
+st.set_page_config(page_title="Physique Tracker", layout="wide")
+
+# ----------------------
+# LOGIN FUNCTION
 # ----------------------
 def login_user(user):
     st.session_state.logged_in = True
@@ -316,29 +323,34 @@ def login_user(user):
 # ----------------------
 # SIDEBAR NAVIGATION
 # ----------------------
+pages = [
+    "Home 🏠",
+    "Meals 🍽",
+    "Workouts 🏋️‍♂️",
+    "Dosing 💉",
+    "Bloodwork 🩸",
+    "Photos 📸",
+    "Dashboard 📊",
+    "Settings ⚙️",
+    "Logout"
+]
+
 if st.session_state.logged_in:
     st.sidebar.title(f"👋 Hello, {st.session_state.user_email}")
-    pages = ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Dosing 💉",
-             "Bloodwork 🩸", "Photos 📸", "Dashboard 📊", "Settings ⚙️", "Logout"]
 
-    # If the stored page is invalid, default to Home
+    # Ensure page is valid
     if st.session_state.page not in pages:
         st.session_state.page = "Home 🏠"
 
-    # Safely get index
-    try:
-        current_index = pages.index(st.session_state.page)
-    except ValueError:
-        current_index = 0
-        st.session_state.page = pages[0]
-
+    current_index = pages.index(st.session_state.page)
     selected_page = st.sidebar.selectbox("Navigation", pages, index=current_index)
 
     if selected_page != st.session_state.page:
         st.session_state.page = selected_page
-        st.experimental_rerun()
+        if selected_page != "Logout":
+            st.experimental_rerun()
 
-    # Logout logic
+    # Handle Logout
     if st.session_state.page == "Logout":
         for key in ["logged_in", "user_id", "user_email", "page"]:
             st.session_state[key] = None if key != "page" else "Home 🏠"
@@ -346,72 +358,78 @@ if st.session_state.logged_in:
         st.experimental_rerun()
 
 # ----------------------
-# LOGIN FORM
-# ----------------------
-if not st.session_state.logged_in:
-    st.sidebar.subheader("Login / Register")
-    auth_mode = st.sidebar.radio("Action", ["Login", "Register"], key="auth_mode")
-    
-    # Use unique keys for each input
-    email_input = st.sidebar.text_input("Email", key="email_input")
-    password_input = st.sidebar.text_input("Password", type="password", key="password_input")
-
-    if st.sidebar.button(auth_mode, key="auth_button"):
-        if not email_input or not password_input:
-            st.sidebar.error("Enter email and password")
-        else:
-            if auth_mode == "Register":
-                if session.query(User).filter_by(email=email_input).first():
-                    st.sidebar.error("User already exists")
-                else:
-                    new_user = User(email=email_input)
-                    new_user.set_password(password_input)
-                    session.add(new_user)
-                    session.commit()
-                    st.sidebar.success("User registered! Please log in.")
-            else:  # Login
-                user = session.query(User).filter_by(email=email_input).first()
-                if user and user.check_password(password_input):
-                    login_user(user)
-                else:
-                    st.sidebar.error("Invalid credentials")
-
-# ----------------------
 # PAGE ROUTING
 # ----------------------
 page = st.session_state.page
-user_id = st.session_state.user_id
 
 # ----------------------
-# HOME / DASHBOARD MERGED
+# HOME / DASHBOARD
 # ----------------------
-if page == "Home 🏠":
+if page in ["Home 🏠", "Dashboard 📊"]:
     st.title("🏠 Home Dashboard")
 
     # Quick Actions
     st.subheader("⚡ Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
-    if col1.button("🍽 Log Meal"):
-        st.session_state.page = "Meals 🍽"
-    if col2.button("🏋️‍♂️ Log Workout"):
-        st.session_state.page = "Workouts 🏋️‍♂️"
-    if col3.button("💉 Log Dose"):
-        st.session_state.page = "Dosing 💉"
-    if col4.button("📊 View Progress"):
-        st.session_state.page = "Dashboard 📊"
+    if col1.button("🍽 Log Meal"): st.session_state.page = "Meals 🍽"
+    if col2.button("🏋️‍♂️ Log Workout"): st.session_state.page = "Workouts 🏋️‍♂️"
+    if col3.button("💉 Log Dose"): st.session_state.page = "Dosing 💉"
+    if col4.button("📊 View Progress"): st.session_state.page = "Dashboard 📊"
+    if st.session_state.page not in ["Home 🏠", "Dashboard 📊"]:
+        st.experimental_rerun()
 
-    # Dashboard Overview
     st.markdown("---")
-    st.subheader("Recent Doses")
-    recent_doses = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
-    st.dataframe(recent_doses)
 
-    st.subheader("Recent Meals")
-    recent_meals = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
+    # Daily Macro Placeholder
+    st.subheader("🔥 Daily Macro Progress")
+    daily_totals = {"Calories": 1800, "Protein": 150, "Carbs": 220, "Fats": 60}
+    daily_targets = {"Calories": 2500, "Protein": 200, "Carbs": 300, "Fats": 70}
+    cols = st.columns(4)
+    for i, macro in enumerate(["Calories", "Protein", "Carbs", "Fats"]):
+        actual = daily_totals.get(macro, 0)
+        target = daily_targets.get(macro, 0)
+        pct = min(actual / target, 1.0)
+        cols[i].metric(label=macro, value=f"{actual}/{target}", delta=f"{actual-target}")
+        cols[i].progress(pct)
+
+    st.markdown("---")
+
+    # Weekly Snapshot
+    st.subheader("🏆 Weekly Nutrition Snapshot")
+    weekly_score = 88
+    st.metric("Compliance Score", f"{weekly_score}/100")
+    weekly_data = pd.DataFrame({
+        "Day": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+        "Calories": [2000,2100,1800,2200,2000,1900,2050],
+        "Protein": [180,190,160,200,180,170,185],
+        "Carbs": [250,270,230,280,260,240,250],
+        "Fats": [65,70,60,75,68,63,66]
+    })
+    fig_week = px.bar(weekly_data, x="Day", y=["Calories","Protein","Carbs","Fats"], barmode="group", title="Weekly Macro Overview")
+    st.plotly_chart(fig_week, use_container_width=True)
+
+    st.markdown("---")
+
+    # Recent Logs
+    st.subheader("🍴 Recent Meals")
+    recent_meals = pd.read_sql(
+        session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement,
+        engine
+    )
     st.dataframe(recent_meals)
 
-    st.subheader("Recent Workouts")
-    recent_workouts = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
+    st.subheader("💉 Recent Doses")
+    recent_doses = pd.read_sql(
+        session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement,
+        engine
+    )
+    st.dataframe(recent_doses)
+
+    st.subheader("🏋️‍♂️ Recent Workouts")
+    recent_workouts = pd.read_sql(
+        session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement,
+        engine
+    )
     st.dataframe(recent_workouts)
 
 # ----------------------
@@ -426,13 +444,11 @@ elif page == "Dosing 💉":
         submitted = st.form_submit_button("Log Dose")
         if submitted:
             if compound and amount > 0:
-                new_dose = Dose(user_id=user_id, compound=compound, amount=amount, date=date)
-                session.add(new_dose)
+                session.add(Dose(user_id=user_id, compound=compound, amount=amount, date=date))
                 session.commit()
                 st.success(f"Dose logged: {compound} {amount}")
             else:
-                st.error("Enter a valid compound and amount")
-
+                st.error("Enter valid compound and amount")
     st.subheader("Recent Doses")
     recent = pd.read_sql(session.query(Dose).filter_by(user_id=user_id).order_by(Dose.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
@@ -451,11 +467,9 @@ elif page == "Meals 🍽":
         date = st.date_input("Date", datetime.date.today())
         submitted = st.form_submit_button("Log Meal")
         if submitted:
-            new_meal = MealLog(user_id=user_id, meal=meal_name, calories=calories, protein=protein, carbs=carbs, fats=fats, date=date)
-            session.add(new_meal)
+            session.add(MealLog(user_id=user_id, meal=meal_name, calories=calories, protein=protein, carbs=carbs, fats=fats, date=date))
             session.commit()
             st.success(f"Meal logged: {meal_name}")
-
     st.subheader("Recent Meals")
     recent = pd.read_sql(session.query(MealLog).filter_by(user_id=user_id).order_by(MealLog.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
@@ -473,11 +487,9 @@ elif page == "Workouts 🏋️‍♂️":
         date = st.date_input("Date", datetime.date.today())
         submitted = st.form_submit_button("Log Workout")
         if submitted:
-            new_w = Workout(user_id=user_id, exercise=exercise, sets=sets, reps=reps, weight=weight, date=date)
-            session.add(new_w)
+            session.add(Workout(user_id=user_id, exercise=exercise, sets=sets, reps=reps, weight=weight, date=date))
             session.commit()
             st.success(f"Workout logged: {exercise}")
-
     st.subheader("Recent Workouts")
     recent = pd.read_sql(session.query(Workout).filter_by(user_id=user_id).order_by(Workout.date.desc()).limit(5).statement, engine)
     st.dataframe(recent)
@@ -487,7 +499,7 @@ elif page == "Workouts 🏋️‍♂️":
 # ----------------------
 elif page == "Bloodwork 🩸":
     st.title("🩸 Bloodwork")
-    st.write("Log your bloodwork")
+    st.write("Log your bloodwork here")
 
 # ----------------------
 # PHOTOS PAGE
