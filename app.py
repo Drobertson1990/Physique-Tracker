@@ -288,23 +288,37 @@ with engine.begin() as conn:
        conn.execute(text("ALTER TABLE exercises ADD COLUMN secondary_muscles TEXT DEFAULT ''"))
 
 # ----------------------
-# STREAMLIT PAGE CONFIG & SIDEBAR NAVIGATION
+# Sidebar Navigation (Logged In)
 # ----------------------
-st.set_page_config(page_title="Physique Tracker", layout="wide")
+else:
+    st.sidebar.title("Navigation")
 
-# Sidebar Navigation
-user_name = st.session_state.get("user_name", "Guest")
-st.sidebar.markdown(f"### 👋 Hello, {user_name}")
-st.sidebar.markdown("---")
+    # Define all pages
+    pages = ["Dosing", "Meals", "Workouts", "Bloodwork", "Photos", "Dashboard", "Logout"]
 
-# Sidebar navigation options with icons
-page = st.sidebar.radio(
-    "Go to",
-    ["Home 🏠", "Meals 🍽", "Workouts 🏋️‍♂️", "Progress 📊", "Settings ⚙️"]
-)
+    # Ensure the current page exists in the pages list
+    current_page = st.session_state.page
+    if current_page not in pages:
+        current_page = "Dosing"
 
-# Store selected page in session state
-st.session_state.page = page
+    # Sidebar selectbox
+    st.session_state.page = st.sidebar.selectbox(
+        "Select Page",
+        pages,
+        index=pages.index(current_page),
+        key="nav_select"
+    )
+
+    st.sidebar.write(f"Logged in as: {st.session_state.user_email}")
+
+    # Logout logic
+    if st.session_state.page == "Logout":
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.user_email = ""
+        st.session_state.page = "Dosing"
+        st.success("Logged out successfully")
+        st.rerun()
 
 # ----------------------
 # HOME PAGE
